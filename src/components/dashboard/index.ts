@@ -1,0 +1,7 @@
+export { default as DashboardKpiGrid } from './DashboardKpiGrid.vue'
+export { default as DashboardMonthlyChart } from './DashboardMonthlyChart.vue'
+export { default as DashboardTimeline } from './DashboardTimeline.vue'
+export { default as DashboardRecentOperations } from './DashboardRecentOperations.vue'
+export { default as DashboardAlerts } from './DashboardAlerts.vue'
+export { default as DashboardStageStatus } from './DashboardStageStatus.vue'
+export { default as DashboardProductivity } from './DashboardProductivity.vue'

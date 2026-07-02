@@ -1,0 +1,17 @@
+import { VALIDATION_STAGES } from '@/constants'
+
+export const WORKFLOW_STAGE_ORDER = [
+  VALIDATION_STAGES.DOCUMENTAL,
+  VALIDATION_STAGES.BL,
+  VALIDATION_STAGES.CE_MERCANTE,
+  VALIDATION_STAGES.NCM,
+  VALIDATION_STAGES.BENEFICIOS,
+  VALIDATION_STAGES.TRIBUTACAO,
+] as const
+
+export const WORKFLOW_STATUS = {
+  DRAFT: 'draft',
+  IN_REVIEW: 'in_review',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+} as const

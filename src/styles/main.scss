@@ -1,0 +1,22 @@
+@use './variables' as *;
+
+.v-application {
+  font-family: 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.nirron-page {
+  max-width: $nirron-content-max-width;
+  margin-inline: auto;
+}
+
+.nirron-page-title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+// MD3-inspired utilities
+.font-weight-semibold {
+  font-weight: 600 !important;
+}
