@@ -1,0 +1,139 @@
+1. Conferência Documental — Invoice × DI
+Comparação campo a campo entre a Invoice e os dados da DI/DUIMP. Divergência em campo crítico gera bloqueio imediato.
+
+Campo validado	Criticidade
+Exportador (nome e país)
+Nível 1 — bloqueio total
+Importador (razão social e CNPJ)
+Nível 1
+Incoterm
+Nível 1
+Moeda
+Nível 1
+Quantidade
+Nível 1
+Valor total FOB
+Nível 1
+Valor unitário
+Nível 1
+Peso líquido / peso bruto
+Nível 2 — aprovação supervisor
+No código, os campos críticos documentais estão em src/validation/constants.ts:
+
+
+constants.ts
+Lines 5-14
+export const CRITICAL_FIELDS = [
+  'exporter_name',
+  'exporter_country',
+  'importer_name',
+  'importer_cnpj',
+  'incoterm',
+  'currency',
+  'quantity',
+  'total_fob_value',
+  'unit_value',
+] as const
+No mock da aplicação, esta etapa totaliza 24 campos analisados (fieldsTotal: 24).
+
+2. Conferência BL — BL × Invoice
+Cruza dados logísticos do Conhecimento de Embarque (BL) com a Invoice.
+
+Campo validado	Observação
+House BL
+Identificação crítica
+Container
+Deve vincular com CE Mercante
+Data de embarque
+Nível 2
+Exportador
+Consistência com Invoice
+Datas logísticas
+Consistência entre documentos
+Pesos
+Consistência entre documentos
+Total no mock: 12 campos.
+
+3. CE Mercante
+Validação do documento de maior risco operacional pós-registro.
+
+Campo validado
+Número da CE Mercante
+BL
+Container
+Cubagem
+Peso (líquido/bruto)
+Consignatário
+Total no mock: 8 campos. Exemplo de divergência: peso bruto diferente da Invoice (Nível 2).
+
+4. Classificação Fiscal NCM
+Etapa mais crítica. A IA confronta:
+
+Validação
+NCM declarada vs histórico do cliente
+NCM vs base histórica NIRRON
+Descrição da Invoice vs catálogo do produto
+Produto já importado anteriormente?
+Existe mudança de NCM em relação ao histórico?
+Existe risco de reenquadramento?
+Total no mock: 6 campos/regras. Exemplo: produto RSH30010601 com 58 importações anteriores em 7210.49.10.
+
+5. Benefícios Fiscais
+Verificação automática de regimes e benefícios aplicáveis:
+
+Benefício / regime	O que é validado
+Ex-Tarifário
+Existe? Aplicado corretamente? Dentro da vigência?
+Drawback
+Ato concessório vigente? Vinculado à operação?
+CAT 68
+Benefício estadual identificado e aplicado?
+Antidumping
+Incide sobre o produto? Há comprovação de não incidência?
+Licença de Importação (LI)
+É necessária? Foi obtida antes do embarque?
+Total no mock: 5 campos.
+
+6. Recálculo Tributário
+Recálculo da cadeia tributária com base na NCM validada e nos benefícios confirmados:
+
+Componente	O que é calculado/validado
+Valor aduaneiro
+FOB + frete internacional + seguro
+II
+Imposto de Importação sobre valor aduaneiro
+IPI
+Conforme NCM e legislação
+PIS / COFINS
+Em cascata conforme legislação
+ICMS
+Por estado de destino
+AFRMM
+Sobre frete marítimo
+Total no mock: 6 campos/impostos. Esta etapa só conclui se as etapas anteriores estiverem consistentes.
+
+Níveis de bloqueio (todas as etapas)
+Nível	Ação
+Nível 1
+Bloqueio total — registro não autorizado
+Nível 2
+Exige aprovação de supervisor
+Resumo por etapa (contagem no mock atual)
+Etapa	Campos no mock
+Documental
+24
+BL
+12
+CE Mercante
+8
+NCM
+6
+Benefícios
+5
+Tributação
+6
+Total
+~61 campos (+ ~150 regras adicionais previstas no sistema completo de 200 regras)
+Observação: o módulo de Workflow ainda não lista campo a campo na UI — hoje isso aparece parcialmente nos mocks (mockComparisonFields, cards de validação e componentes NCMCard, BenefitCard, TaxCard). A especificação completa está no PDF de apresentação do projeto.
+
+Se quiser, no próximo passo posso criar um arquivo validation-fields.constants.ts com todos esses campos tipados por etapa, para alimentar o Workflow e os relatórios.
