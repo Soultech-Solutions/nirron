@@ -9,7 +9,7 @@ export function setupRequestInterceptor (): {
     onFulfilled (config: InternalAxiosRequestConfig) {
       const skipAuth = (config as InternalAxiosRequestConfig & { skipAuth?: boolean }).skipAuth
 
-      if (!skipAuth) {
+      if (!skipAuth && !config.headers.Authorization) {
         const token = getAccessToken()
         if (token) {
           config.headers.Authorization = `Bearer ${token}`

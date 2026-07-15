@@ -13,6 +13,36 @@ export class AppError extends Error {
   }
 }
 
+// O Directus responde erros como { errors: [{ message, extensions: { code } }] }.
+interface DirectusErrorItem {
+  message?: string
+  extensions?: { code?: string }
+}
+
+const DIRECTUS_ERROR_MESSAGES: Record<string, string> = {
+  INVALID_CREDENTIALS: 'E-mail ou senha inválidos.',
+  INVALID_TOKEN: 'Sessão inválida ou expirada.',
+  TOKEN_EXPIRED: 'Sessão expirada. Faça login novamente.',
+  FORBIDDEN: 'Você não tem permissão para acessar este recurso.',
+}
+
+function parseDirectusError (
+  data: unknown,
+): { message: string, code?: string } | null {
+  if (!data || typeof data !== 'object' || !('errors' in data)) {
+    return null
+  }
+  const errors = (data as { errors: unknown }).errors
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return null
+  }
+  const first = errors[0] as DirectusErrorItem
+  if (typeof first?.message !== 'string') {
+    return null
+  }
+  return { message: first.message, code: first.extensions?.code }
+}
+
 export function parseApiError (error: unknown): AppError {
   if (error instanceof AppError) {
     return error
@@ -22,6 +52,15 @@ export function parseApiError (error: unknown): AppError {
     const axiosError = error
     const response = axiosError.response?.data
     const statusCode = axiosError.response?.status
+    const directusError = parseDirectusError(response)
+
+    if (directusError) {
+      return new AppError(
+        DIRECTUS_ERROR_MESSAGES[directusError.code ?? ''] ?? directusError.message,
+        directusError.code,
+        statusCode,
+      )
+    }
 
     return new AppError(
       response?.message ?? axiosError.message ?? 'Erro inesperado na requisição',

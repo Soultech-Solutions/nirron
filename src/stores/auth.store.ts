@@ -1,14 +1,15 @@
+import type { ResetPasswordRequestDto } from '@/dtos'
+import type { IAuthSession, ILoginCredentials, IUser } from '@/interfaces'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { STORAGE_KEYS } from '@/constants'
-import type { IAuthSession, ILoginCredentials, IUser } from '@/interfaces'
-import type { ResetPasswordRequestDto } from '@/dtos'
 import { authService } from '@/services'
-import { DEMO_USER } from '@/mocks/auth.mock'
 import {
   clearAuthStorage,
   getAccessToken,
   getRefreshToken,
+  isForbiddenError,
+  isUnauthorizedError,
   setAccessToken,
   setRefreshToken,
   storage,
@@ -44,14 +45,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchMe (): Promise<void> {
-    if (!getAccessToken()) return
+    if (!getAccessToken()) {
+      return
+    }
     loading.value = true
     try {
       const currentUser = await authService.me()
       user.value = currentUser
       storage.set(STORAGE_KEYS.USER, currentUser)
-    } catch {
-      clearSession()
+    } catch (error) {
+      // Erro de rede (API fora do ar, CORS) não invalida a sessão local;
+      // apenas falha de autenticação encerra a sessão.
+      if (isUnauthorizedError(error) || isForbiddenError(error)) {
+        clearSession()
+      }
     } finally {
       loading.value = false
       initialized.value = true
@@ -60,7 +67,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function refreshSession (): Promise<boolean> {
     const token = getRefreshToken()
-    if (!token) return false
+    if (!token) {
+      return false
+    }
     try {
       const response = await authService.refresh({ refreshToken: token })
       persistSession(mapResponseToSession(response))
@@ -83,17 +92,18 @@ export const useAuthStore = defineStore('auth', () => {
   async function resetPassword (data: ResetPasswordRequestDto): Promise<void> {
     loading.value = true
     try {
-      await authService.resetPassword()
-      void data
+      await authService.resetPassword(data)
     } finally {
       loading.value = false
     }
   }
 
   async function initialize (): Promise<void> {
-    if (getAccessToken() && !user.value) {
-      user.value = DEMO_USER
-      storage.set(STORAGE_KEYS.USER, DEMO_USER)
+    // Valida a sessão persistida contra a API antes de considerá-la ativa;
+    // fetchMe limpa a sessão se o token não for mais válido.
+    if (getAccessToken()) {
+      await fetchMe()
+      return
     }
     initialized.value = true
   }
@@ -102,7 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken: string
     refreshToken: string
     expiresIn: number
-    user: { id: string; name: string; email: string; role: string; avatar?: string }
+    user: { id: string, name: string, email: string, role: string, avatar?: string }
   }): IAuthSession {
     return {
       user: {
@@ -136,7 +146,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function hasRole (...roles: IUser['role'][]): boolean {
-    if (!user.value) return false
+    if (!user.value) {
+      return false
+    }
     return roles.includes(user.value.role)
   }
 

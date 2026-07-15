@@ -1,13 +1,14 @@
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useNotification } from '@/composables'
 import { AUTH_ROUTE_PATHS } from '@/constants/auth.constants'
 import { useAuthStore } from '@/stores'
-import { useNotification } from '@/composables'
 import { getErrorMessage } from '@/utils'
 
 export function useLogin () {
   const authStore = useAuthStore()
   const router = useRouter()
+  const route = useRoute()
   const { success, error } = useNotification()
 
   const email = ref('')
@@ -17,13 +18,16 @@ export function useLogin () {
   const isValid = computed(() => email.value.trim() && password.value.length >= 6)
 
   async function submit (): Promise<void> {
-    if (!isValid.value) return
+    if (!isValid.value) {
+      return
+    }
     try {
       await authStore.login({ email: email.value.trim(), password: password.value })
       success('Bem-vindo ao NIRRON')
-      await router.push('/dashboard')
-    } catch (err) {
-      error('Falha no login', getErrorMessage(err))
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+      await router.push(redirect)
+    } catch (error_) {
+      error('Falha no login', getErrorMessage(error_))
     }
   }
 
@@ -42,8 +46,8 @@ export function useForgotPassword () {
       await authStore.forgotPassword(email.value.trim())
       sent.value = true
       success('E-mail enviado', 'Verifique sua caixa de entrada.')
-    } catch (err) {
-      error('Erro', getErrorMessage(err))
+    } catch (error_) {
+      error('Erro', getErrorMessage(error_))
     }
   }
 
@@ -67,13 +71,15 @@ export function useResetPassword () {
   )
 
   async function submit (token: string): Promise<void> {
-    if (!isValid.value) return
+    if (!isValid.value) {
+      return
+    }
     try {
       await authStore.resetPassword({ token, password: password.value, passwordConfirmation: passwordConfirmation.value })
       success('Senha redefinida')
       await router.push(AUTH_ROUTE_PATHS.LOGIN)
-    } catch (err) {
-      error('Erro', getErrorMessage(err))
+    } catch (error_) {
+      error('Erro', getErrorMessage(error_))
     }
   }
 

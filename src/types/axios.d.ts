@@ -9,5 +9,6 @@ declare module 'axios' {
   export interface InternalAxiosRequestConfig {
     skipAuth?: boolean
     skipErrorHandler?: boolean
+    retriedAfterRefresh?: boolean
   }
 }

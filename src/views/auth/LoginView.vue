@@ -1,9 +1,19 @@
 <script lang="ts" setup>
+  import { ref } from 'vue'
   import { AppButton } from '@/components/ui'
-  import { DEMO_CREDENTIALS } from '@/mocks/auth.mock'
   import { useLogin } from '@/composables/useAuthForms'
+  import { USE_MOCK_AUTH } from '@/services'
 
   const { email, password, showPassword, isValid, loading, submit } = useLogin()
+
+  // Carrega a credencial demo apenas em modo mock, mantendo o módulo de mocks
+  // fora do carregamento em produção.
+  const demoCredentials = ref<{ email: string, password: string } | null>(null)
+  if (USE_MOCK_AUTH) {
+    import('@/mocks/auth.mock').then(module => {
+      demoCredentials.value = module.DEMO_CREDENTIALS
+    })
+  }
 </script>
 
 <template>
@@ -16,6 +26,7 @@
     <h2 class="text-h6 font-weight-bold mb-1">
       Entrar
     </h2>
+
     <p class="text-body-2 text-medium-emphasis mb-6">
       Acesse a plataforma de conferência aduaneira
     </p>
@@ -33,13 +44,13 @@
 
       <v-text-field
         v-model="password"
-        :type="showPassword ? 'text' : 'password'"
+        :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
         autocomplete="current-password"
         density="comfortable"
         label="Senha"
         prepend-inner-icon="mdi-lock-outline"
+        :type="showPassword ? 'text' : 'password'"
         variant="outlined"
-        :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
         @click:append-inner="showPassword = !showPassword"
       />
 
@@ -53,9 +64,9 @@
       </div>
 
       <AppButton
+        block
         :disabled="!isValid"
         :loading="loading"
-        block
         type="submit"
       >
         Entrar
@@ -63,12 +74,13 @@
     </v-form>
 
     <v-alert
+      v-if="demoCredentials"
       class="mt-4"
       density="compact"
       type="info"
       variant="tonal"
     >
-      Demo: {{ DEMO_CREDENTIALS.email }} / {{ DEMO_CREDENTIALS.password }}
+      Demo: {{ demoCredentials.email }} / {{ demoCredentials.password }}
     </v-alert>
   </v-card>
 </template>

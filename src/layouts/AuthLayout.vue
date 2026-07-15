@@ -1,5 +1,6 @@
 <script lang="ts" setup>
   import { NirronLogo } from '@/components/brand'
+  import AppSnackbar from '@/components/layout/AppSnackbar.vue'
   import { APP_DESCRIPTION, BRAND } from '@/constants'
 </script>
 
@@ -57,6 +58,8 @@
         </section>
       </div>
     </v-main>
+
+    <AppSnackbar />
   </v-app>
 </template>
 

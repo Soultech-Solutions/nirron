@@ -2,14 +2,24 @@
   import { computed } from 'vue'
   import { useRoute } from 'vue-router'
   import { useDisplay, useTheme } from 'vuetify'
-  import AppBreadcrumb from './AppBreadcrumb.vue'
+  import { useAuth } from '@/composables'
   import { APP_NAME } from '@/constants'
   import { useAppStore } from '@/stores'
+  import AppBreadcrumb from './AppBreadcrumb.vue'
 
   const route = useRoute()
   const theme = useTheme()
   const display = useDisplay()
   const appStore = useAppStore()
+  const { user, logout } = useAuth()
+
+  const username = computed(() => user.value?.name ?? 'Usuário')
+
+  const userInitials = computed(() => {
+    const parts = username.value.trim().split(/\s+/)
+    const initials = (parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')
+    return initials.toUpperCase() || '?'
+  })
 
   const pageTitle = computed(() => {
     return (route.meta.title as string | undefined) ?? APP_NAME
@@ -58,6 +68,7 @@
 
     <div class="app-topbar__content flex-grow-1 overflow-hidden">
       <AppBreadcrumb class="d-none d-sm-flex" />
+
       <div class="app-topbar__title text-subtitle-1 font-weight-semibold d-sm-none">
         {{ pageTitle }}
       </div>
@@ -88,8 +99,8 @@
       </v-btn>
 
       <v-btn
-        :icon="theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         class="app-topbar__icon"
+        :icon="theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         size="small"
         variant="text"
         @click="toggleTheme"
@@ -112,11 +123,13 @@
               color="primary"
               size="32"
             >
-              <span class="text-caption font-weight-bold text-white">AD</span>
+              <span class="text-caption font-weight-bold text-white">{{ userInitials }}</span>
             </v-avatar>
+
             <span class="text-body-2 font-weight-medium d-none d-lg-inline ms-2">
-              Admin
+              {{ username }}
             </span>
+
             <v-icon
               class="d-none d-lg-inline app-topbar__icon"
               icon="mdi-chevron-down"
@@ -124,6 +137,7 @@
             />
           </v-btn>
         </template>
+
         <v-list
           density="compact"
           min-width="200"
@@ -133,14 +147,18 @@
             prepend-icon="mdi-account-outline"
             title="Meu perfil"
           />
+
           <v-list-item
             prepend-icon="mdi-cog-outline"
             title="Configurações"
           />
+
           <v-divider class="my-1" />
+
           <v-list-item
             prepend-icon="mdi-logout"
             title="Sair"
+            @click="logout"
           />
         </v-list>
       </v-menu>

@@ -66,5 +66,14 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // Em desenvolvimento o Directus é acessado via proxy same-origin,
+    // dispensando liberação de localhost no CORS_ORIGIN do servidor.
+    proxy: {
+      '/directus': {
+        target: process.env.DIRECTUS_PROXY_TARGET ?? 'https://mailminer.soultech.solutions',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/directus/, ''),
+      },
+    },
   },
 })
