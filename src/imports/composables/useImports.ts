@@ -1,4 +1,13 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
+import type {
+  AIResultData,
+  ComparisonField,
+  DocumentItem,
+  RiskItem,
+  TimelineEvent,
+  ValidationCardData,
+  WorkflowStep,
+} from '@/components/domain/types'
 import type { ImportDetailDto, ImportListItemDto, ImportListQueryDto } from '@/dtos'
 import type { PaginatedResponse } from '@/types'
 import { OperationStatus, SortOrderEnum } from '@/enums'
@@ -13,9 +22,14 @@ import {
   mockWorkflowSteps,
   mockImportsList,
 } from '@/mocks/imports.mock'
+import { OPERATION_STATUS_LABELS } from '@/imports/processStatus'
+import { processesRepository } from '@/repositories/processes.repository'
+import { USE_MOCK_AUTH } from '@/services'
+import { getErrorMessage } from '@/utils'
 
 export function useImportsList () {
   const loading = ref(false)
+  const errorMessage = ref<string | null>(null)
   const items = ref<ImportListItemDto[]>([])
   const meta = ref<PaginatedResponse<ImportListItemDto>['meta']>({
     currentPage: 1,
@@ -50,18 +64,33 @@ export function useImportsList () {
 
   async function fetchList (): Promise<void> {
     loading.value = true
+    errorMessage.value = null
     try {
-      await delay(400)
-      const response = mockImportsList({
-        page: query.value.page,
-        perPage: query.value.perPage,
-        search: query.value.search,
-        status: query.value.status,
-        sortBy: query.value.sortBy,
-        sortOrder: query.value.sortOrder,
-      })
-      items.value = response.data
+      if (USE_MOCK_AUTH) {
+        await delay(400)
+        const response = mockImportsList({
+          page: query.value.page,
+          perPage: query.value.perPage,
+          search: query.value.search,
+          status: query.value.status,
+          sortBy: query.value.sortBy,
+          sortOrder: query.value.sortOrder,
+        })
+        items.value = response.data
+        meta.value = response.meta
+        return
+      }
+
+      const response = await processesRepository.list(query.value)
+      let data = response.data
+      if (query.value.status) {
+        data = data.filter((item) => item.status === query.value.status)
+      }
+      items.value = data
       meta.value = response.meta
+    } catch (error) {
+      errorMessage.value = getErrorMessage(error, 'Falha ao carregar processos do Directus')
+      items.value = []
     } finally {
       loading.value = false
     }
@@ -70,28 +99,30 @@ export function useImportsList () {
   function setSearch (value: string): void {
     query.value.search = value
     query.value.page = 1
-    fetchList()
+    void fetchList()
   }
 
   function setStatus (status?: OperationStatus): void {
     query.value.status = status
     query.value.page = 1
-    fetchList()
+    void fetchList()
   }
 
   function setPage (page: number): void {
     query.value.page = page
-    fetchList()
+    void fetchList()
   }
 
   function setSort (sortBy: string): void {
     if (query.value.sortBy === sortBy) {
-      query.value.sortOrder = query.value.sortOrder === SortOrderEnum.ASC ? SortOrderEnum.DESC : SortOrderEnum.ASC
+      query.value.sortOrder = query.value.sortOrder === SortOrderEnum.ASC
+        ? SortOrderEnum.DESC
+        : SortOrderEnum.ASC
     } else {
       query.value.sortBy = sortBy
       query.value.sortOrder = SortOrderEnum.ASC
     }
-    fetchList()
+    void fetchList()
   }
 
   function toggleSelect (id: string): void {
@@ -123,6 +154,7 @@ export function useImportsList () {
 
   return {
     loading,
+    errorMessage,
     items,
     meta,
     query,
@@ -145,13 +177,64 @@ export function useImportsList () {
 
 export function useImportDetail () {
   const loading = ref(false)
+  const errorMessage = ref<string | null>(null)
   const detail = ref<ImportDetailDto | null>(null)
+  const documents = ref<DocumentItem[]>([])
+  const workflowSteps = ref<WorkflowStep[]>([])
+  const validationCards = ref<ValidationCardData[]>([])
+  const comparisonFields = ref<ComparisonField[]>([])
+  const risks = ref<RiskItem[]>([])
+  const timeline = ref<TimelineEvent[]>([])
+  const aiResult = ref<AIResultData>({
+    summary: '',
+    confidence: 0,
+    recommendation: '',
+    risks: [],
+    approved: false,
+  })
 
   async function fetchDetail (id: string): Promise<void> {
     loading.value = true
+    errorMessage.value = null
     try {
-      await delay(400)
-      detail.value = getImportDetail(id) ?? null
+      if (USE_MOCK_AUTH) {
+        await delay(400)
+        detail.value = getImportDetail(id) ?? null
+        documents.value = mockDocuments
+        workflowSteps.value = mockWorkflowSteps
+        validationCards.value = mockValidationCards
+        comparisonFields.value = mockComparisonFields
+        risks.value = mockRisks
+        timeline.value = mockTimeline
+        aiResult.value = mockAIResult
+        return
+      }
+
+      const response = await processesRepository.getDetail(id)
+      detail.value = response.detail
+      documents.value = response.documents
+      workflowSteps.value = response.workflowSteps
+      validationCards.value = response.validationCards
+      comparisonFields.value = response.comparisonFields
+      risks.value = response.risks
+      timeline.value = response.timeline
+      aiResult.value = response.aiResult
+    } catch (error) {
+      errorMessage.value = getErrorMessage(error, 'Falha ao carregar processo')
+      detail.value = null
+      documents.value = []
+      workflowSteps.value = []
+      validationCards.value = []
+      comparisonFields.value = []
+      risks.value = []
+      timeline.value = []
+      aiResult.value = {
+        summary: '',
+        confidence: 0,
+        recommendation: '',
+        risks: [],
+        approved: false,
+      }
     } finally {
       loading.value = false
     }
@@ -159,17 +242,20 @@ export function useImportDetail () {
 
   return {
     loading,
+    errorMessage,
     detail,
-    workflowSteps: mockWorkflowSteps,
-    validationCards: mockValidationCards,
-    comparisonFields: mockComparisonFields,
-    documents: mockDocuments,
-    timeline: mockTimeline,
-    risks: mockRisks,
-    aiResult: mockAIResult,
+    workflowSteps,
+    validationCards,
+    comparisonFields,
+    documents,
+    timeline,
+    risks,
+    aiResult,
     fetchDetail,
   }
 }
+
+export { OPERATION_STATUS_LABELS }
 
 function delay (ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

@@ -75,11 +75,12 @@
       font-size: 0.6875rem !important;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      opacity: 0.7;
+      color: rgb(var(--v-theme-on-surface-variant)) !important;
+      opacity: 1;
     }
 
     &__row--critical {
-      background: rgba(var(--v-theme-error), 0.04);
+      background: rgba(var(--v-theme-error), 0.12);
     }
   }
 </style>

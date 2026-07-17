@@ -96,15 +96,20 @@
           </td>
           <td class="text-end">
             <v-btn
+              color="primary"
               icon="mdi-eye-outline"
               size="x-small"
-              variant="text"
+              title="Visualizar"
+              variant="tonal"
               @click="emit('view', doc.id)"
             />
             <v-btn
+              class="ms-1"
+              color="primary"
               icon="mdi-download-outline"
               size="x-small"
-              variant="text"
+              title="Baixar"
+              variant="tonal"
               @click="emit('download', doc.id)"
             />
           </td>

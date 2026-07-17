@@ -11,13 +11,14 @@
     Toolbar,
   } from '@/components/ui'
   import { ROUTE_PATHS } from '@/constants'
-  import { useImportsList } from '@/imports/composables/useImports'
+  import { useImportsList, OPERATION_STATUS_LABELS } from '@/imports/composables/useImports'
   import { formatDateTime, formatNcm } from '@/utils'
 
   const router = useRouter()
 
   const {
     loading,
+    errorMessage,
     items,
     meta,
     query,
@@ -93,7 +94,7 @@
           :model-value="query.search"
           density="compact"
           hide-details
-          placeholder="Pesquisar empresa, DI, invoice, NCM..."
+          placeholder="Pesquisar referência, cliente..."
           prepend-inner-icon="mdi-magnify"
           style="min-width: 280px"
           variant="outlined"
@@ -113,6 +114,16 @@
       </template>
     </Toolbar>
 
+    <v-alert
+      v-if="errorMessage"
+      class="mb-4"
+      density="compact"
+      type="error"
+      variant="tonal"
+    >
+      {{ errorMessage }}
+    </v-alert>
+
     <LoadingSkeleton
       :loading="loading"
       type="table"
@@ -128,10 +139,15 @@
           <thead>
             <tr>
               <th style="width: 48px">
-                <v-checkbox-btn
-                  :model-value="selectedIds.length === items.length && items.length > 0"
-                  :indeterminate="selectedIds.length > 0 && selectedIds.length < items.length"
-                  @update:model-value="toggleSelectAll"
+                <v-btn
+                  :icon="selectedIds.length === items.length && items.length > 0
+                    ? 'mdi-checkbox-marked'
+                    : selectedIds.length > 0
+                      ? 'mdi-minus-box'
+                      : 'mdi-checkbox-blank-outline'"
+                  size="small"
+                  variant="text"
+                  @click.stop="toggleSelectAll"
                 />
               </th>
               <th
@@ -172,9 +188,13 @@
               @click="goToDetail(item.id)"
             >
               <td @click.stop>
-                <v-checkbox-btn
-                  :model-value="selectedIds.includes(item.id)"
-                  @update:model-value="toggleSelect(item.id)"
+                <v-btn
+                  :icon="selectedIds.includes(item.id)
+                    ? 'mdi-checkbox-marked'
+                    : 'mdi-checkbox-blank-outline'"
+                  size="small"
+                  variant="text"
+                  @click="toggleSelect(item.id)"
                 />
               </td>
               <td class="font-weight-medium">
@@ -197,7 +217,7 @@
               </td>
               <td>
                 <StatusBadge
-                  :label="item.status"
+                  :label="OPERATION_STATUS_LABELS[item.status]"
                   :variant="statusVariant(item.status)"
                   dot
                   size="small"

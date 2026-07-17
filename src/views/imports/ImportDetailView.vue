@@ -12,17 +12,22 @@
     ValidationCard,
     WorkflowStepper,
   } from '@/components/domain'
-  import { AppButton, AppCard, LoadingSkeleton, PageHeader, SectionTitle } from '@/components/ui'
+  import type { DocumentItem } from '@/components/domain/types'
+  import { AppButton, AppCard, AppDialog, LoadingSkeleton, PageHeader, SectionTitle } from '@/components/ui'
+  import { useNotification } from '@/composables'
   import { ROUTE_PATHS } from '@/constants'
   import { RiskLevel } from '@/enums'
   import { useImportDetail } from '@/imports/composables/useImports'
-  import { formatCurrency, formatNcm } from '@/utils'
+  import { downloadFile, downloadFromBlob } from '@/services'
+  import { formatCurrency, formatNcm, getErrorMessage } from '@/utils'
 
   const route = useRoute()
   const router = useRouter()
+  const { success, error, warning } = useNotification()
 
   const {
     loading,
+    errorMessage,
     detail,
     workflowSteps,
     validationCards,
@@ -35,6 +40,9 @@
   } = useImportDetail()
 
   const sideTab = ref('observations')
+  const viewerOpen = ref(false)
+  const viewerDoc = ref<DocumentItem | null>(null)
+  const actionLoading = ref(false)
 
   watch(
     () => route.params.id as string,
@@ -61,14 +69,72 @@
   })
 
   const ncmData = computed(() => ({
-    code: detail.value?.ncm ?? '',
-    description: 'Produtos laminados planos de ferro ou aço, zincados',
-    historicalCode: '72104910',
-    historicalCount: 58,
-    riskLevel: RiskLevel.CRITICAL,
-    aiOpinion: 'Histórico consolidado indica NCM 7210.49.10 para o produto RSH30010601.',
+    code: detail.value?.ncm && detail.value.ncm !== '—' ? detail.value.ncm : '',
+    description: detail.value?.ncm && detail.value.ncm !== '—'
+      ? 'NCM informado nos campos extraídos do processo'
+      : 'NCM não identificado nos campos do processo',
+    historicalCode: undefined as string | undefined,
+    historicalCount: undefined as number | undefined,
+    riskLevel: risks.value.some((r) => r.level === RiskLevel.CRITICAL)
+      ? RiskLevel.CRITICAL
+      : risks.value.some((r) => r.level === RiskLevel.HIGH)
+        ? RiskLevel.HIGH
+        : RiskLevel.LOW,
+    aiOpinion: aiResult.value.recommendation || undefined,
   }))
 
+  function findDocument (id: string): DocumentItem | undefined {
+    return documents.value.find((doc) => doc.id === id)
+  }
+
+  function handleViewDocument (id: string): void {
+    const doc = findDocument(id)
+    if (!doc) {
+      warning('Documento não encontrado')
+      return
+    }
+    if (!doc.content && !doc.downloadUrl) {
+      warning('Sem conteúdo', 'Este documento não possui preview disponível.')
+      return
+    }
+    viewerDoc.value = doc
+    viewerOpen.value = true
+  }
+
+  async function handleDownloadDocument (id: string): Promise<void> {
+    const doc = findDocument(id)
+    if (!doc) {
+      warning('Documento não encontrado')
+      return
+    }
+
+    actionLoading.value = true
+    try {
+      if (doc.downloadUrl) {
+        await downloadFile(doc.downloadUrl, {
+          fileName: doc.name,
+          mimeType: doc.mimeType,
+        })
+        success('Download iniciado', doc.name)
+        return
+      }
+
+      if (doc.content) {
+        const blob = new Blob([doc.content], {
+          type: doc.mimeType ?? 'text/markdown;charset=utf-8',
+        })
+        await downloadFromBlob(blob, doc.name.endsWith('.md') ? doc.name : `${doc.name}.md`)
+        success('Arquivo baixado', doc.name)
+        return
+      }
+
+      warning('Download indisponível', 'Não há arquivo ou conteúdo associado a este documento.')
+    } catch (error_) {
+      error('Falha no download', getErrorMessage(error_))
+    } finally {
+      actionLoading.value = false
+    }
+  }
 </script>
 
 <template>
@@ -85,11 +151,18 @@
         >
           Voltar
         </AppButton>
-        <AppButton prepend-icon="mdi-play-circle-outline">
-          Executar validação
-        </AppButton>
       </template>
     </PageHeader>
+
+    <v-alert
+      v-if="errorMessage"
+      class="mb-4"
+      density="compact"
+      type="error"
+      variant="tonal"
+    >
+      {{ errorMessage }}
+    </v-alert>
 
     <LoadingSkeleton
       :loading="loading"
@@ -137,12 +210,16 @@
             <ComparisonCard
               class="mt-4"
               :fields="comparisonFields"
-              title="Divergências — Invoice x DI"
+              source-a-label="Origem A"
+              source-b-label="Origem B"
+              title="Cruzamentos por regra (PDF)"
             />
 
             <DocumentCard
               class="mt-4"
               :documents="documents"
+              @download="handleDownloadDocument"
+              @view="handleViewDocument"
             />
 
             <AIResultCard
@@ -212,7 +289,26 @@
                       :subtitle="doc.size"
                       :title="doc.name"
                       prepend-icon="mdi-file-outline"
-                    />
+                    >
+                      <template #append>
+                        <v-btn
+                          color="primary"
+                          icon="mdi-eye-outline"
+                          size="x-small"
+                          variant="tonal"
+                          @click="handleViewDocument(doc.id)"
+                        />
+                        <v-btn
+                          :loading="actionLoading"
+                          class="ms-1"
+                          color="primary"
+                          icon="mdi-download-outline"
+                          size="x-small"
+                          variant="tonal"
+                          @click="handleDownloadDocument(doc.id)"
+                        />
+                      </template>
+                    </v-list-item>
                   </v-list>
                 </v-tabs-window-item>
 
@@ -246,6 +342,49 @@
         </v-row>
       </template>
     </LoadingSkeleton>
+
+    <AppDialog
+      v-model="viewerOpen"
+      :title="viewerDoc?.name ?? 'Documento'"
+      max-width="840"
+      scrollable
+    >
+      <div
+        v-if="viewerDoc?.content"
+        class="document-preview"
+      >
+        <pre class="document-preview__markdown">{{ viewerDoc.content }}</pre>
+      </div>
+      <iframe
+        v-else-if="viewerDoc?.downloadUrl"
+        :src="viewerDoc.downloadUrl"
+        class="document-preview__frame"
+        title="Visualização do documento"
+      />
+      <p
+        v-else
+        class="text-body-2 text-medium-emphasis mb-0"
+      >
+        Conteúdo indisponível para visualização.
+      </p>
+
+      <template #actions>
+        <AppButton
+          variant="ghost"
+          @click="viewerOpen = false"
+        >
+          Fechar
+        </AppButton>
+        <AppButton
+          v-if="viewerDoc"
+          :loading="actionLoading"
+          prepend-icon="mdi-download-outline"
+          @click="viewerDoc && handleDownloadDocument(viewerDoc.id)"
+        >
+          Baixar
+        </AppButton>
+      </template>
+    </AppDialog>
   </div>
 </template>
 
@@ -254,5 +393,28 @@
     border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 10px;
     min-height: 160px;
+  }
+
+  .document-preview {
+    &__markdown {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      max-height: 60vh;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(var(--v-theme-on-surface), 0.04);
+    }
+
+    &__frame {
+      width: 100%;
+      height: 60vh;
+      border: none;
+      border-radius: 8px;
+    }
   }
 </style>

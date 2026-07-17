@@ -41,5 +41,9 @@
     border-radius: 14px;
     background: rgb(var(--v-theme-surface));
     box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+
+    :global(.v-theme--dark) & {
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    }
   }
 </style>

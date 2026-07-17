@@ -1,5 +1,6 @@
 export { BaseRepository } from './base.repository'
 export { authRepository } from './auth.repository'
 export { importsRepository } from './imports.repository'
+export { processesRepository } from './processes.repository'
 export { workflowRepository } from './workflow.repository'
 export { reportsRepository } from './reports.repository'

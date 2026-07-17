@@ -26,3 +26,4 @@ export const validationService = new ValidationService()
 
 export * from './types'
 export * from './constants'
+export { runConferenceAnalysis, getPlannedRulesCount } from './conference.engine'

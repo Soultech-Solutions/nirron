@@ -44,7 +44,8 @@
 
 <style scoped lang="scss">
   .status-badge {
-    font-weight: 500;
+    border: 1px solid currentColor;
+    font-weight: 600;
     letter-spacing: 0.02em;
 
     &--small {

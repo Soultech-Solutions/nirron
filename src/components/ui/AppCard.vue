@@ -62,6 +62,11 @@
 
     &--hoverable:hover {
       box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+      border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+    }
+
+    :global(.v-theme--dark) &--hoverable:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
     }
 
     &__title {
@@ -70,8 +75,9 @@
     }
 
     &__subtitle {
-      opacity: 0.72;
+      color: rgb(var(--v-theme-on-surface-variant));
       font-size: 0.8125rem;
+      opacity: 1;
     }
   }
 </style>

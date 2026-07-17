@@ -25,13 +25,23 @@ export const API_ENDPOINTS = {
     PASSWORD_REQUEST: '/auth/password/request',
     PASSWORD_RESET: '/auth/password/reset',
   },
+  /** Collections Directus (Data Model NIRRON) */
+  DIRECTUS: {
+    PROCESSES: '/items/processes',
+    PROCESS_BY_ID: (id: string) => `/items/processes/${id}`,
+    DOCUMENTS: '/items/documents',
+    DOCUMENT_BY_ID: (id: string) => `/items/documents/${id}`,
+    ATTACHMENTS: '/items/attachments',
+    EMAILS: '/items/emails',
+    AI_PROMPTS: '/items/ai_prompts',
+  },
   WORKFLOW: {
     BASE: '/workflow',
     BY_ID: (id: string) => `/workflow/${id}`,
   },
   IMPORTS: {
-    BASE: '/imports',
-    BY_ID: (id: string) => `/imports/${id}`,
+    BASE: '/items/processes',
+    BY_ID: (id: string) => `/items/processes/${id}`,
   },
   VALIDATION: {
     BASE: '/validation',

@@ -44,8 +44,8 @@
   const vuetifyColor = computed(() => {
     const map: Record<AppButtonVariant, string | undefined> = {
       primary: 'primary',
-      secondary: undefined,
-      ghost: undefined,
+      secondary: 'on-surface',
+      ghost: 'on-surface',
       danger: 'error',
       success: 'success',
       tonal: 'primary',
@@ -92,5 +92,18 @@
     font-weight: 500;
     letter-spacing: 0.01em;
     text-transform: none;
+
+    &:focus-visible {
+      outline: 2px solid rgb(var(--v-theme-primary));
+      outline-offset: 2px;
+    }
+
+    :deep(.v-btn__overlay) {
+      opacity: 0;
+    }
+
+    &:hover :deep(.v-btn__overlay) {
+      opacity: var(--v-hover-opacity);
+    }
   }
 </style>

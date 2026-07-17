@@ -124,10 +124,10 @@
 
     &__divider {
       max-width: 60px;
-      opacity: 0.3;
+      opacity: 1;
+      border-color: rgba(var(--v-theme-on-surface), 0.28) !important;
 
       &--active {
-        opacity: 1;
         border-color: rgb(var(--v-theme-success)) !important;
       }
     }

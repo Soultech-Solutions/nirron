@@ -107,6 +107,10 @@
       box-shadow: 0 4px 12px rgba(16, 24, 40, 0.06);
     }
 
+    :global(.v-theme--dark) &:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    }
+
     &__label {
       font-weight: 500;
       letter-spacing: 0.01em;

@@ -79,27 +79,6 @@
     <div class="d-flex align-center ga-1">
       <v-btn
         class="app-topbar__icon"
-        icon="mdi-magnify"
-        size="small"
-        variant="text"
-      />
-
-      <v-btn
-        class="app-topbar__icon"
-        icon="mdi-bell-outline"
-        size="small"
-        variant="text"
-      >
-        <v-badge
-          color="error"
-          content="3"
-          dot
-          floating
-        />
-      </v-btn>
-
-      <v-btn
-        class="app-topbar__icon"
         :icon="theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night'"
         size="small"
         variant="text"
@@ -167,20 +146,18 @@
 </template>
 
 <style scoped lang="scss">
-  @use '@/styles/variables' as *;
-
   .app-topbar {
-    background: linear-gradient(180deg, $nirron-topbar-tint 0%, rgb(var(--v-theme-surface)) 100%) !important;
-    border-bottom: 2px solid rgba($nirron-primary, 0.12);
+    background: rgb(var(--v-theme-surface)) !important;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 
     :global(.v-theme--dark) & {
-      background: linear-gradient(180deg, rgba($nirron-primary, 0.08) 0%, rgb(var(--v-theme-surface)) 100%) !important;
-      border-bottom-color: rgba($nirron-primary, 0.2);
+      background: rgb(var(--v-theme-surface)) !important;
+      border-bottom-color: rgba(var(--v-border-color), var(--v-border-opacity));
     }
 
     &__title {
       letter-spacing: -0.01em;
-      color: $nirron-brand-dark;
+      color: rgb(var(--v-theme-on-surface));
     }
 
     &__user {
@@ -189,20 +166,20 @@
     }
 
     &__avatar {
-      box-shadow: 0 0 0 2px rgba($nirron-primary, 0.2);
+      box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.35);
     }
 
     &__icon {
-      color: $nirron-brand-surface !important;
+      color: rgb(var(--v-theme-on-surface)) !important;
 
       &:hover {
-        color: $nirron-primary !important;
-        background: rgba($nirron-primary, 0.08) !important;
+        color: rgb(var(--v-theme-primary)) !important;
+        background: rgba(var(--v-theme-primary), var(--v-hover-opacity)) !important;
       }
     }
 
     &__divider {
-      border-color: rgba($nirron-primary, 0.15) !important;
+      border-color: rgba(var(--v-border-color), var(--v-border-opacity)) !important;
       opacity: 1;
     }
   }

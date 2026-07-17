@@ -18,9 +18,9 @@
 
   function isActive (item: NavigationItem): boolean {
     if (item.routeName) {
-      return route.name === item.routeName
+      return route.name === item.routeName || String(route.name ?? '').startsWith(`${item.routeName}-`)
     }
-    return route.path === item.to
+    return route.path === item.to || route.path.startsWith(`${item.to}/`)
   }
 </script>
 
@@ -74,7 +74,6 @@
           :prepend-icon="item.icon"
           :title="isRail ? undefined : item.title"
           :to="item.to"
-          active-color="primary"
           base-color="white"
           color="primary"
           rounded="lg"
@@ -121,7 +120,6 @@
           :prepend-icon="item.icon"
           :title="isRail ? undefined : item.title"
           :to="item.to"
-          active-color="primary"
           base-color="white"
           color="primary"
           rounded="lg"

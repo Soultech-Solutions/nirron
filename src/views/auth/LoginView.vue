@@ -6,8 +6,6 @@
 
   const { email, password, showPassword, isValid, loading, submit } = useLogin()
 
-  // Carrega a credencial demo apenas em modo mock, mantendo o módulo de mocks
-  // fora do carregamento em produção.
   const demoCredentials = ref<{ email: string, password: string } | null>(null)
   if (USE_MOCK_AUTH) {
     import('@/mocks/auth.mock').then(module => {
@@ -30,6 +28,16 @@
     <p class="text-body-2 text-medium-emphasis mb-6">
       Acesse a plataforma de conferência aduaneira
     </p>
+
+    <v-alert
+      v-if="!demoCredentials"
+      class="mb-4"
+      density="compact"
+      type="info"
+      variant="tonal"
+    >
+      Autenticação via Directus. Use o e-mail e a senha do usuário criado no painel.
+    </v-alert>
 
     <v-form @submit.prevent="submit">
       <v-text-field

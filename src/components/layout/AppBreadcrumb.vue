@@ -55,28 +55,33 @@
 </template>
 
 <style scoped lang="scss">
-  @use '@/styles/variables' as *;
-
   .app-breadcrumb {
     min-height: 28px;
 
     &__item {
       font-weight: 500;
-      opacity: 0.85;
+      color: rgb(var(--v-theme-on-surface-variant));
+      opacity: 1;
 
       &--root:not(.v-breadcrumbs-item--disabled) {
-        color: $nirron-primary !important;
-        opacity: 1;
+        color: rgb(var(--v-theme-primary)) !important;
         font-weight: 600;
 
         &:hover {
-          color: $nirron-primary-light !important;
+          text-decoration: underline;
+          text-underline-offset: 3px;
         }
       }
     }
 
+    :deep(.v-breadcrumbs-item--disabled) {
+      opacity: 0.95 !important;
+      color: rgb(var(--v-theme-on-surface)) !important;
+    }
+
     &__divider {
-      color: rgba($nirron-primary, 0.4) !important;
+      color: rgb(var(--v-theme-on-surface-variant)) !important;
+      opacity: 0.8;
     }
   }
 </style>

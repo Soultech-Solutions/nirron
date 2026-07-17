@@ -90,12 +90,11 @@
       transition: height 0.4s ease;
 
       &--approved {
-        background: #1FA971;
+        background: rgb(var(--v-theme-success));
       }
 
       &--blocked {
-        background: #D32F2F;
-        opacity: 0.85;
+        background: rgb(var(--v-theme-error));
       }
     }
 
@@ -105,11 +104,11 @@
       border-radius: 50%;
 
       &--approved {
-        background: #1FA971;
+        background: rgb(var(--v-theme-success));
       }
 
       &--blocked {
-        background: #D32F2F;
+        background: rgb(var(--v-theme-error));
       }
     }
   }

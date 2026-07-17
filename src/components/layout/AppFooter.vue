@@ -36,10 +36,8 @@
 </template>
 
 <style scoped lang="scss">
-  @use '@/styles/variables' as *;
-
   .app-footer {
-    border-top: 1px solid rgba($nirron-primary, 0.12);
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     padding: 12px 24px;
     margin-top: auto;
     background: linear-gradient(0deg, $nirron-topbar-tint 0%, transparent 100%);
@@ -55,7 +53,7 @@
       transition: color 0.15s ease;
 
       &:hover {
-        color: $nirron-primary;
+        color: rgb(var(--v-theme-primary));
       }
     }
   }

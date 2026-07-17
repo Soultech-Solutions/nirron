@@ -74,6 +74,12 @@ export interface DocumentItem {
   size: string
   uploadedAt: string
   status: ValidationResultEnum
+  /** Conteúdo textual (markdown) para visualização */
+  content?: string
+  mimeType?: string
+  /** URL absoluta para download/preview quando disponível */
+  downloadUrl?: string
+  attachmentId?: string
 }
 
 export interface AIResultData {

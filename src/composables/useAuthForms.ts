@@ -15,7 +15,7 @@ export function useLogin () {
   const password = ref('')
   const showPassword = ref(false)
 
-  const isValid = computed(() => email.value.trim() && password.value.length >= 6)
+  const isValid = computed(() => email.value.trim().length > 0 && password.value.length >= 1)
 
   async function submit (): Promise<void> {
     if (!isValid.value) {

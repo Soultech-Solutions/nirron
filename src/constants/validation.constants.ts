@@ -58,5 +58,6 @@ export const VALIDATION_RESULT = {
   APPROVED: 'approved',
   REJECTED: 'rejected',
   WARNING: 'warning',
+  PENDING: 'pending',
   SKIPPED: 'skipped',
 } as const
