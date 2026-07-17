@@ -53,7 +53,7 @@ export function useImportsList () {
   const drawerItem = ref<ImportListItemDto | null>(null)
 
   const statusOptions = computed(() => [
-    { label: 'Todos', value: undefined },
+    { label: 'Todos', value: '' },
     { label: 'Pendente', value: OperationStatus.PENDING },
     { label: 'Em conferência', value: OperationStatus.IN_CONFERENCE },
     { label: 'Em revisão', value: OperationStatus.IN_REVIEW },
@@ -87,7 +87,16 @@ export function useImportsList () {
         data = data.filter((item) => item.status === query.value.status)
       }
       items.value = data
-      meta.value = response.meta
+      meta.value = {
+        ...response.meta,
+        // Mantém a contagem alinhada quando o filtro de status é aplicado no client
+        from: data.length ? 1 : null,
+        to: data.length || null,
+        total: query.value.status ? data.length : response.meta.total,
+        lastPage: query.value.status
+          ? Math.max(1, Math.ceil(data.length / (query.value.perPage ?? 10)))
+          : response.meta.lastPage,
+      }
     } catch (error) {
       errorMessage.value = getErrorMessage(error, 'Falha ao carregar processos do Directus')
       items.value = []
@@ -102,8 +111,10 @@ export function useImportsList () {
     void fetchList()
   }
 
-  function setStatus (status?: OperationStatus): void {
-    query.value.status = status
+  function setStatus (status?: string | null): void {
+    query.value.status = Object.values(OperationStatus).includes(status as OperationStatus)
+      ? status as OperationStatus
+      : undefined
     query.value.page = 1
     void fetchList()
   }
@@ -183,6 +194,8 @@ export function useImportDetail () {
   const workflowSteps = ref<WorkflowStep[]>([])
   const validationCards = ref<ValidationCardData[]>([])
   const comparisonFields = ref<ComparisonField[]>([])
+  const mercanteComparisonFields = ref<ComparisonField[]>([])
+  const extractedFieldMap = ref<Record<string, string>>({})
   const risks = ref<RiskItem[]>([])
   const timeline = ref<TimelineEvent[]>([])
   const aiResult = ref<AIResultData>({
@@ -204,6 +217,8 @@ export function useImportDetail () {
         workflowSteps.value = mockWorkflowSteps
         validationCards.value = mockValidationCards
         comparisonFields.value = mockComparisonFields
+        mercanteComparisonFields.value = []
+        extractedFieldMap.value = {}
         risks.value = mockRisks
         timeline.value = mockTimeline
         aiResult.value = mockAIResult
@@ -216,6 +231,8 @@ export function useImportDetail () {
       workflowSteps.value = response.workflowSteps
       validationCards.value = response.validationCards
       comparisonFields.value = response.comparisonFields
+      mercanteComparisonFields.value = []
+      extractedFieldMap.value = response.extractedFieldMap
       risks.value = response.risks
       timeline.value = response.timeline
       aiResult.value = response.aiResult
@@ -226,6 +243,8 @@ export function useImportDetail () {
       workflowSteps.value = []
       validationCards.value = []
       comparisonFields.value = []
+      mercanteComparisonFields.value = []
+      extractedFieldMap.value = {}
       risks.value = []
       timeline.value = []
       aiResult.value = {
@@ -247,6 +266,8 @@ export function useImportDetail () {
     workflowSteps,
     validationCards,
     comparisonFields,
+    mercanteComparisonFields,
+    extractedFieldMap,
     documents,
     timeline,
     risks,

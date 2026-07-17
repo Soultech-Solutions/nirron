@@ -93,40 +93,42 @@
       </template>
     </v-list>
 
-    <v-divider class="app-sidebar__divider my-2" />
+    <template v-if="ADMIN_NAVIGATION.length">
+      <v-divider class="app-sidebar__divider my-2" />
 
-    <div
-      v-if="!isRail"
-      class="px-4 py-2 text-overline app-sidebar__section-label"
-    >
-      Administração
-    </div>
-
-    <v-list
-      class="app-sidebar__nav pb-2"
-      density="compact"
-      nav
-    >
-      <template
-        v-for="item in ADMIN_NAVIGATION"
-        :key="item.key"
+      <div
+        v-if="!isRail"
+        class="px-4 py-2 text-overline app-sidebar__section-label"
       >
-        <v-divider
-          v-if="item.dividerBefore && !isRail"
-          class="app-sidebar__divider my-2"
-        />
-        <v-list-item
-          :active="isActive(item)"
-          :prepend-icon="item.icon"
-          :title="isRail ? undefined : item.title"
-          :to="item.to"
-          base-color="white"
-          color="primary"
-          rounded="lg"
-          :value="item.key"
-        />
-      </template>
-    </v-list>
+        Administração
+      </div>
+
+      <v-list
+        class="app-sidebar__nav pb-2"
+        density="compact"
+        nav
+      >
+        <template
+          v-for="item in ADMIN_NAVIGATION"
+          :key="item.key"
+        >
+          <v-divider
+            v-if="item.dividerBefore && !isRail"
+            class="app-sidebar__divider my-2"
+          />
+          <v-list-item
+            :active="isActive(item)"
+            :prepend-icon="item.icon"
+            :title="isRail ? undefined : item.title"
+            :to="item.to"
+            base-color="white"
+            color="primary"
+            rounded="lg"
+            :value="item.key"
+          />
+        </template>
+      </v-list>
+    </template>
 
     <template #append>
       <div class="pa-3">

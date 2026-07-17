@@ -12,9 +12,9 @@ import { ValidationResultEnum } from '@/enums'
 import { API_ENDPOINTS } from '@/constants'
 import {
   buildTimeline,
-  resolveOperationStatus,
 } from '@/imports/processStatus'
 import { runConferenceAnalysis } from '@/validation/conference.engine'
+import { resolveCeNumber, buildExtractedFieldMap } from '@/services/api/mercante.service'
 import { directusGetById, directusList } from '@/services/api/directus.items'
 
 /**
@@ -61,6 +61,8 @@ export interface ProcessDetailPayload {
   risks: RiskItem[]
   timeline: TimelineEvent[]
   aiResult: AIResultData
+  /** Campos achatados da extração (e-mails/documentos) para cruzamento Mercante */
+  extractedFieldMap: Record<string, string>
 }
 
 function readBodyField (body: DirectusProcess['body_fields'], key: string): string {
@@ -135,13 +137,8 @@ function mapProcessToListItem (process: DirectusProcess): ImportListItemDto {
     || readBodyField(process.body_fields, 'NCM')
     || '—'
   const now = new Date().toISOString()
-  const docs = process.documents ?? []
-
-  // Preferência: motor de conferência do PDF quando há extracted_fields
-  const hasExtracted = docs.some((d) => d.extracted_fields && Object.keys(d.extracted_fields).length > 0)
-  const status = hasExtracted
-    ? runConferenceAnalysis(process).operationStatus
-    : resolveOperationStatus(process.confidence, docs)
+  // Mesma fonte do detalhe: motor de conferência (evita "Aprovada" só por extração de PDF)
+  const status = runConferenceAnalysis(process).operationStatus
 
   return {
     id: String(process.id),
@@ -189,6 +186,10 @@ function mapProcessToDetail (
     registrationStatus,
     weightNet: body.peso_liquido != null ? Number(body.peso_liquido) : undefined,
     weightGross: body.peso_bruto != null ? Number(body.peso_bruto) : undefined,
+    ceNumber: resolveCeNumber({
+      bodyFields: process.body_fields,
+      documents: process.documents,
+    }) || undefined,
   }
 }
 
@@ -210,11 +211,15 @@ function buildDetailPayload (process: DirectusProcess): ProcessDetailPayload {
     risks: analysis.risks,
     timeline: buildTimeline(process, docs),
     aiResult: analysis.aiResult,
+    extractedFieldMap: buildExtractedFieldMap({
+      bodyFields: process.body_fields,
+      documents: docs,
+    }),
   }
 }
 
 /** Lista: inclui status de documentos para status consistente com o detalhe */
-const PROCESS_LIST_FIELDS = [
+export const PROCESS_LIST_FIELDS = [
   'id',
   'ref_nirron',
   'ref_cliente',

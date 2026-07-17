@@ -102,6 +102,7 @@
         />
         <v-select
           :items="statusOptions"
+          :model-value="query.status ?? ''"
           density="compact"
           hide-details
           item-title="label"

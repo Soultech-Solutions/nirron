@@ -35,6 +35,8 @@ export interface ImportDetailDto extends ImportListItemDto {
   registrationStatus: string
   weightNet?: number
   weightGross?: number
+  /** Número CE Mercante quando disponível nos campos extraídos */
+  ceNumber?: string
 }
 
 export interface ImportExportDto {

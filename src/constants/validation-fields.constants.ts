@@ -45,9 +45,9 @@ export const STAGE_FIELD_RULES: Record<ValidationStage, StageFieldRule[]> = {
     { field: 'ce_number', label: 'Número CE Mercante', aliases: ['ce_number', 'ce_mercante', 'ce', 'conhecimento_eletronico'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_1, sourceA: 'ce_mercante', sourceB: 'bl' },
     { field: 'house_bl', label: 'BL', aliases: ['house_bl', 'bl_number', 'bl'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_1, sourceA: 'ce_mercante', sourceB: 'bl' },
     { field: 'container', label: 'Container', aliases: ['container', 'container_number'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_1, sourceA: 'ce_mercante', sourceB: 'bl' },
-    { field: 'cubage', label: 'Cubagem', aliases: ['cubage', 'cubagem', 'cbm', 'volume'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_2, sourceA: 'ce_mercante', sourceB: 'bl' },
-    { field: 'weight_gross', label: 'Peso', aliases: ['weight_gross', 'peso_bruto', 'peso', 'gross_weight'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_2, sourceA: 'ce_mercante', sourceB: 'invoice' },
-    { field: 'consignee', label: 'Consignatário', aliases: ['consignee', 'consignatario', 'consignee_name'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_1, sourceA: 'ce_mercante', sourceB: 'bl' },
+    { field: 'cubage', label: 'Cubagem', aliases: ['cubage', 'cubagem', 'cubagem_m3', 'cbm', 'volume'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_2, sourceA: 'ce_mercante', sourceB: 'bl' },
+    { field: 'weight_gross', label: 'Peso', aliases: ['weight_gross', 'peso_bruto', 'peso_bruto_kg', 'peso', 'gross_weight'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_2, sourceA: 'ce_mercante', sourceB: 'invoice' },
+    { field: 'consignee', label: 'Consignatário', aliases: ['consignee', 'consignatario', 'consignee_name', 'cpf_cnpj_consignatario', 'cnpj_consignatario', 'cnpj'], blockageLevel: BLOCKAGE_LEVELS.LEVEL_1, sourceA: 'ce_mercante', sourceB: 'bl' },
   ],
 
   [VALIDATION_STAGES.NCM]: [

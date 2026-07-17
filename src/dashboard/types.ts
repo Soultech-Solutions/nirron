@@ -41,7 +41,7 @@ export interface DashboardTimelineItem {
   id: string
   title: string
   description: string
-  timestamp: string
+  timestamp?: string
   icon: string
   color: string
 }
@@ -53,7 +53,7 @@ export interface DashboardOperation {
   documentType: 'DI' | 'DUIMP'
   status: 'pending' | 'in_review' | 'approved' | 'blocked'
   stage: ValidationStage
-  updatedAt: string
+  updatedAt?: string
 }
 
 export interface DashboardAlert {
@@ -61,7 +61,7 @@ export interface DashboardAlert {
   title: string
   message: string
   severity: 'danger' | 'warning' | 'info'
-  timestamp: string
+  timestamp?: string
 }
 
 export interface StageStatusItem {

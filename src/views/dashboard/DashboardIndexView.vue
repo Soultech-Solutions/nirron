@@ -10,10 +10,9 @@
     DashboardTimeline,
   } from '@/components/dashboard'
   import { AppButton, PageHeader } from '@/components/ui'
-  import { ROUTE_PATHS } from '@/constants'
   import { useDashboard } from '@/dashboard/composables/useDashboard'
 
-  const { loading, data, fetchDashboard } = useDashboard()
+  const { loading, errorMessage, data, fetchDashboard } = useDashboard()
 
   onMounted(() => {
     fetchDashboard()
@@ -35,14 +34,18 @@
         >
           Atualizar
         </AppButton>
-        <AppButton
-          :to="ROUTE_PATHS.CONFERENCE_NEW"
-          prepend-icon="mdi-plus"
-        >
-          Nova Conferência
-        </AppButton>
       </template>
     </PageHeader>
+
+    <v-alert
+      v-if="errorMessage"
+      class="mb-6"
+      density="compact"
+      type="error"
+      variant="tonal"
+    >
+      {{ errorMessage }}
+    </v-alert>
 
     <DashboardKpiGrid
       class="mb-6"

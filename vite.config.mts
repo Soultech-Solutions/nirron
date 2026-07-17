@@ -74,6 +74,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: path => path.replace(/^\/directus/, ''),
       },
+      '/mercante': {
+        target: process.env.MERCANTE_PROXY_TARGET ?? 'https://nirron-mercante.soultech.solutions',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/mercante/, ''),
+      },
     },
   },
 })

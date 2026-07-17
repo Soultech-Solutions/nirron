@@ -40,7 +40,7 @@
     border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     padding: 12px 24px;
     margin-top: auto;
-    background: linear-gradient(0deg, $nirron-topbar-tint 0%, transparent 100%);
+    background: rgb(var(--v-theme-surface));
 
     &__inner {
       max-width: 1440px;
@@ -48,7 +48,7 @@
     }
 
     &__link {
-      color: rgba(var(--v-theme-on-surface), 0.6);
+      color: rgba(var(--v-theme-on-surface), 0.78);
       text-decoration: none;
       transition: color 0.15s ease;
 

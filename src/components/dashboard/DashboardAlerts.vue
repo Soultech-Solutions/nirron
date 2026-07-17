@@ -72,7 +72,10 @@
                 :variant="severityMap[alert.severity]"
                 size="small"
               />
-              <span class="text-caption text-disabled">
+              <span
+                v-if="alert.timestamp"
+                class="text-caption text-disabled"
+              >
                 {{ formatDateTime(alert.timestamp) }}
               </span>
             </div>

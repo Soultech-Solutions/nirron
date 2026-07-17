@@ -1,18 +1,23 @@
 <script lang="ts" setup>
-  import { AppCard, SectionTitle, StatusBadge } from '@/components/ui'
+  import { computed } from 'vue'
+  import { AppButton, AppCard, SectionTitle, StatusBadge } from '@/components/ui'
   import type { ValidationCardData } from './types'
-  import { ValidationResultEnum } from '@/enums'
+  import { ValidationResultEnum, ValidationStageEnum } from '@/enums'
 
   interface Props {
     data: ValidationCardData
     loading?: boolean
+    actionLoading?: boolean
   }
 
-  defineProps<Props>()
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     click: []
+    'validate-mercante': []
   }>()
+
+  const isCeMercante = computed(() => props.data.stage === ValidationStageEnum.CE_MERCANTE)
 
   function statusVariant (status: ValidationResultEnum) {
     const map: Record<ValidationResultEnum, 'success' | 'danger' | 'warning' | 'pending' | 'neutral'> = {
@@ -51,12 +56,33 @@
       rounded
     />
 
-    <div class="d-flex ga-4 text-caption text-medium-emphasis">
-      <span>{{ data.fieldsApproved }}/{{ data.fieldsTotal }} aprovados</span>
-      <span
-        v-if="data.fieldsRejected"
-        class="text-error"
-      >{{ data.fieldsRejected }} rejeitados</span>
+    <div class="d-flex align-center justify-space-between ga-3 flex-wrap">
+      <div class="d-flex ga-4 text-caption text-medium-emphasis">
+        <span>{{ data.fieldsApproved }}/{{ data.fieldsTotal }} aprovados</span>
+        <span
+          v-if="data.fieldsRejected"
+          class="text-error"
+        >{{ data.fieldsRejected }} rejeitados</span>
+      </div>
+
+      <v-tooltip
+        v-if="isCeMercante"
+        location="top"
+        text="Consultar no Mercante"
+      >
+        <template #activator="{ props: tooltipProps }">
+          <AppButton
+            v-bind="tooltipProps"
+            :loading="actionLoading"
+            prepend-icon="mdi-ferry"
+            size="small"
+            variant="tonal"
+            @click.stop="emit('validate-mercante')"
+          >
+            Validar dados
+          </AppButton>
+        </template>
+      </v-tooltip>
     </div>
 
     <p

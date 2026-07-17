@@ -1,6 +1,8 @@
 export { httpClient, apiGet, apiPost, apiPut, apiPatch, apiDelete } from './api/http.client'
 export { uploadFile, uploadFiles } from './api/upload.service'
 export { downloadFile, downloadFromBlob, buildExportFileName } from './api/download.service'
+export { validateMercanteCe, resolveCeNumber, buildExtractedFieldMap, crossCheckMercanteWithExtracted, applyMercanteCrossCheckToCards, mercanteCrossCheckRisks } from './api/mercante.service'
+export type { MercanteValidateRequest, MercanteValidateResponse, MercanteCrossCheckResult } from './api/mercante.service'
 export { setUnauthorizedHandler } from './api/interceptors'
 export { BaseService } from './base.service'
 export { authService, USE_MOCK_AUTH } from './auth.service'

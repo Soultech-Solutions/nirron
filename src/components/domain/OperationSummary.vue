@@ -1,6 +1,9 @@
 <script lang="ts" setup>
-  import ApprovalStatus from './ApprovalStatus.vue'
+  import { computed } from 'vue'
+  import { StatusBadge } from '@/components/ui'
   import type { OperationSummaryField } from './types'
+  import { OperationStatus } from '@/enums'
+  import { OPERATION_STATUS_LABELS } from '@/imports/processStatus'
 
   interface Props {
     fields: OperationSummaryField[]
@@ -8,8 +11,36 @@
     title?: string
   }
 
-  withDefaults(defineProps<Props>(), {
+  const props = withDefaults(defineProps<Props>(), {
     title: 'Resumo da Operação',
+  })
+
+  function statusVariant (status: string) {
+    const map: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'pending' | 'neutral'> = {
+      [OperationStatus.PENDING]: 'pending',
+      [OperationStatus.IN_REVIEW]: 'info',
+      [OperationStatus.IN_CONFERENCE]: 'info',
+      [OperationStatus.COMPLETED]: 'success',
+      [OperationStatus.APPROVED]: 'success',
+      [OperationStatus.BLOCKED]: 'danger',
+      [OperationStatus.CANCELLED]: 'neutral',
+      authorized: 'success',
+      not_authorized: 'danger',
+    }
+    return map[status] ?? 'pending'
+  }
+
+  const statusLabel = computed(() => {
+    if (props.status in OPERATION_STATUS_LABELS) {
+      return OPERATION_STATUS_LABELS[props.status as OperationStatus]
+    }
+    const registrationLabels: Record<string, string> = {
+      authorized: 'Autorizado',
+      not_authorized: 'Não Autorizado',
+      blocked: 'Bloqueado',
+      pending: 'Pendente',
+    }
+    return registrationLabels[props.status] ?? props.status
   })
 </script>
 
@@ -23,7 +54,11 @@
       <h2 class="text-h6 font-weight-bold">
         {{ title }}
       </h2>
-      <ApprovalStatus :status="status" />
+      <StatusBadge
+        :label="statusLabel"
+        :variant="statusVariant(status)"
+        dot
+      />
     </div>
 
     <v-row>

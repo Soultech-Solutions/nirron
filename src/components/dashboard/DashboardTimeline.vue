@@ -48,7 +48,10 @@
             <span class="text-caption text-medium-emphasis">
               {{ item.description }}
             </span>
-            <span class="text-caption text-disabled mt-1">
+            <span
+              v-if="item.timestamp"
+              class="text-caption text-disabled mt-1"
+            >
               {{ formatDateTime(item.timestamp) }}
             </span>
           </div>

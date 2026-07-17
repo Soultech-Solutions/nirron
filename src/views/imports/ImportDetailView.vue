@@ -18,7 +18,14 @@
   import { ROUTE_PATHS } from '@/constants'
   import { RiskLevel } from '@/enums'
   import { useImportDetail } from '@/imports/composables/useImports'
-  import { downloadFile, downloadFromBlob } from '@/services'
+  import {
+    applyMercanteCrossCheckToCards,
+    crossCheckMercanteWithExtracted,
+    downloadFile,
+    downloadFromBlob,
+    mercanteCrossCheckRisks,
+    validateMercanteCe,
+  } from '@/services'
   import { formatCurrency, formatNcm, getErrorMessage } from '@/utils'
 
   const route = useRoute()
@@ -32,6 +39,8 @@
     workflowSteps,
     validationCards,
     comparisonFields,
+    mercanteComparisonFields,
+    extractedFieldMap,
     documents,
     timeline,
     risks,
@@ -43,6 +52,7 @@
   const viewerOpen = ref(false)
   const viewerDoc = ref<DocumentItem | null>(null)
   const actionLoading = ref(false)
+  const mercanteLoading = ref(false)
 
   watch(
     () => route.params.id as string,
@@ -82,6 +92,42 @@
         : RiskLevel.LOW,
     aiOpinion: aiResult.value.recommendation || undefined,
   }))
+
+  async function handleValidateMercante (): Promise<void> {
+    const ceNumber = detail.value?.ceNumber?.trim()
+    if (!ceNumber) {
+      warning(
+        'CE Mercante não encontrado',
+        'Informe ou extraia o número CE nos documentos para consultar o Mercante.',
+      )
+      return
+    }
+
+    mercanteLoading.value = true
+    try {
+      const data = await validateMercanteCe({ ce_number: ceNumber, save: true })
+      const crossCheck = crossCheckMercanteWithExtracted(data, extractedFieldMap.value)
+
+      mercanteComparisonFields.value = crossCheck.fields
+      validationCards.value = applyMercanteCrossCheckToCards(validationCards.value, crossCheck)
+
+      const mercanteRisks = mercanteCrossCheckRisks(crossCheck)
+      risks.value = [
+        ...risks.value.filter((r) => !r.title.startsWith('Mercante —')),
+        ...mercanteRisks,
+      ]
+
+      if (crossCheck.rejected > 0) {
+        warning('Cruzamento Mercante', crossCheck.summary)
+      } else {
+        success('Consulta Mercante concluída', crossCheck.summary)
+      }
+    } catch (error_) {
+      error('Falha na consulta Mercante', getErrorMessage(error_))
+    } finally {
+      mercanteLoading.value = false
+    }
+  }
 
   function findDocument (id: string): DocumentItem | undefined {
     return documents.value.find((doc) => doc.id === id)
@@ -171,7 +217,7 @@
       <template v-if="detail">
         <OperationSummary
           :fields="summaryFields"
-          :status="detail.registrationStatus"
+          :status="detail.status"
           class="mb-6"
         />
 
@@ -203,9 +249,22 @@
                 cols="12"
                 md="6"
               >
-                <ValidationCard :data="card" />
+                <ValidationCard
+                  :action-loading="mercanteLoading"
+                  :data="card"
+                  @validate-mercante="handleValidateMercante"
+                />
               </v-col>
             </v-row>
+
+            <ComparisonCard
+              v-if="mercanteComparisonFields.length"
+              class="mt-4"
+              :fields="mercanteComparisonFields"
+              source-a-label="Mercante"
+              source-b-label="Extração (e-mail)"
+              title="Cruzamento Mercante × Extração"
+            />
 
             <ComparisonCard
               class="mt-4"
@@ -263,9 +322,6 @@
                 <v-tab value="logs">
                   Logs
                 </v-tab>
-                <v-tab value="ai">
-                  Chat IA
-                </v-tab>
               </v-tabs>
 
               <v-tabs-window
@@ -322,20 +378,6 @@
                     />
                   </v-list>
                 </v-tabs-window-item>
-
-                <v-tabs-window-item value="ai">
-                  <div class="ai-chat-placeholder pa-4 text-center">
-                    <v-icon
-                      class="mb-2"
-                      color="primary"
-                      icon="mdi-robot-outline"
-                      size="40"
-                    />
-                    <p class="text-body-2 text-medium-emphasis mb-0">
-                      Chat com IA NIRRON em breve. Tire dúvidas sobre esta operação.
-                    </p>
-                  </div>
-                </v-tabs-window-item>
               </v-tabs-window>
             </AppCard>
           </v-col>
@@ -389,12 +431,6 @@
 </template>
 
 <style scoped lang="scss">
-  .ai-chat-placeholder {
-    border: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 10px;
-    min-height: 160px;
-  }
-
   .document-preview {
     &__markdown {
       margin: 0;

@@ -273,6 +273,7 @@ function registrationFromStages (stages: ValidationStageResult[]): {
     s.fields.some((f) => f.result === VALIDATION_RESULT.WARNING || (f.result === VALIDATION_RESULT.REJECTED && f.blockageLevel === BLOCKAGE_LEVELS.LEVEL_2)),
   )
   const allApproved = stages.every((s) => s.status === VALIDATION_RESULT.APPROVED)
+  const evaluated = stages.flatMap((s) => s.fields).filter((f) => f.result !== VALIDATION_RESULT.PENDING)
   const anyPending = stages.some((s) => s.status === VALIDATION_RESULT.PENDING)
 
   if (hasLevel1) {
@@ -284,6 +285,10 @@ function registrationFromStages (stages: ValidationStageResult[]): {
   }
   if (allApproved) {
     return { operationStatus: OperationStatus.APPROVED, registrationStatus: ApprovalStatusEnum.AUTHORIZED }
+  }
+  // Sem nenhum campo comparado ainda → pendente (não "aprovada" por extrair PDF)
+  if (evaluated.length === 0) {
+    return { operationStatus: OperationStatus.PENDING, registrationStatus: ApprovalStatusEnum.PENDING }
   }
   if (anyPending) {
     return { operationStatus: OperationStatus.IN_CONFERENCE, registrationStatus: ApprovalStatusEnum.PENDING }

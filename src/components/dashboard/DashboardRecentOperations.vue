@@ -83,7 +83,7 @@
               />
             </td>
             <td class="d-none d-md-table-cell text-end text-caption text-medium-emphasis">
-              {{ formatDateTime(op.updatedAt) }}
+              {{ op.updatedAt ? formatDateTime(op.updatedAt) : '—' }}
             </td>
           </tr>
         </tbody>
