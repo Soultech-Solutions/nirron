@@ -8,6 +8,7 @@ const srcPath = fileURLToPath(new URL('src', import.meta.url))
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/nirron/',
   plugins: [
     Vue({
       template: { transformAssetUrls },
