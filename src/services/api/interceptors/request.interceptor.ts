@@ -16,7 +16,8 @@ export function setupRequestInterceptor (): {
         }
       }
 
-      config.headers['X-Request-Id'] = crypto.randomUUID()
+      // Não enviar headers customizados (ex.: X-Request-Id): o CORS do Directus
+      // só libera headers padrão; customizados quebram o preflight em produção.
       config.headers['Accept'] = 'application/json'
       config.headers['Content-Type'] ??= 'application/json'
 

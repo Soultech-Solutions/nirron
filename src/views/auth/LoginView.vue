@@ -36,7 +36,7 @@
       type="info"
       variant="tonal"
     >
-      Autenticação via Directus. Use o e-mail e a senha do usuário criado no painel.
+      Use o e-mail e a senha do usuário criado no painel.
     </v-alert>
 
     <v-form @submit.prevent="submit">
