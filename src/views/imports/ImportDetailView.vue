@@ -13,7 +13,7 @@
     WorkflowStepper,
   } from '@/components/domain'
   import type { DocumentItem } from '@/components/domain/types'
-  import { AppButton, AppCard, AppDialog, LoadingSkeleton, PageHeader, SectionTitle } from '@/components/ui'
+  import { AppButton, AppCard, AppDialog, ConfirmDialog, LoadingSkeleton, PageHeader, SectionTitle } from '@/components/ui'
   import { useNotification } from '@/composables'
   import { ROUTE_PATHS } from '@/constants'
   import { RiskLevel } from '@/enums'
@@ -46,6 +46,7 @@
     risks,
     aiResult,
     fetchDetail,
+    reprocessEmail,
   } = useImportDetail()
 
   const sideTab = ref('observations')
@@ -53,6 +54,8 @@
   const viewerDoc = ref<DocumentItem | null>(null)
   const actionLoading = ref(false)
   const mercanteLoading = ref(false)
+  const reprocessLoading = ref(false)
+  const reprocessConfirmOpen = ref(false)
 
   watch(
     () => route.params.id as string,
@@ -71,12 +74,35 @@
       { label: 'Container', value: d.container ?? '—', icon: 'mdi-package-variant' },
       { label: 'DI', value: d.diNumber ?? '—', icon: 'mdi-file-certificate' },
       { label: 'DUIMP', value: d.duimpNumber ?? '—', icon: 'mdi-file-sign' },
+      { label: 'BL', value: d.blNumber ?? '—', icon: 'mdi-ferry' },
+      { label: 'CE Mercante', value: d.ceNumber ?? '—', icon: 'mdi-ship-wheel' },
       { label: 'Invoice', value: d.invoiceNumber, icon: 'mdi-file-document' },
+      { label: 'Assunto', value: d.emailSubject ?? '—', icon: 'mdi-email-outline' },
       { label: 'NCM', value: formatNcm(d.ncm), icon: 'mdi-barcode' },
-      { label: 'Responsável', value: d.responsible, icon: 'mdi-account' },
       { label: 'Valor FOB', value: formatCurrency(d.totalFobValue, d.currency), icon: 'mdi-currency-usd' },
     ]
   })
+
+  const canReprocess = computed(() => Boolean(detail.value?.emailId))
+
+  async function handleReprocess (): Promise<void> {
+    const emailId = detail.value?.emailId
+    if (!emailId) {
+      warning('Sem Email ID', 'Esta importação não está vinculada a um e-mail do miner.')
+      return
+    }
+
+    reprocessConfirmOpen.value = false
+    reprocessLoading.value = true
+    try {
+      const message = await reprocessEmail(emailId)
+      success('Reprocessamento enfileirado', message)
+    } catch (error_) {
+      error('Falha ao reprocessar', getErrorMessage(error_))
+    } finally {
+      reprocessLoading.value = false
+    }
+  }
 
   const ncmData = computed(() => ({
     code: detail.value?.ncm && detail.value.ncm !== '—' ? detail.value.ncm : '',
@@ -196,6 +222,15 @@
           @click="router.push(ROUTE_PATHS.IMPORTS)"
         >
           Voltar
+        </AppButton>
+        <AppButton
+          v-if="canReprocess"
+          :loading="reprocessLoading"
+          prepend-icon="mdi-refresh"
+          variant="secondary"
+          @click="reprocessConfirmOpen = true"
+        >
+          Reprocessar docs
         </AppButton>
       </template>
     </PageHeader>
@@ -391,18 +426,18 @@
       max-width="840"
       scrollable
     >
-      <div
-        v-if="viewerDoc?.content"
-        class="document-preview"
-      >
-        <pre class="document-preview__markdown">{{ viewerDoc.content }}</pre>
-      </div>
       <iframe
-        v-else-if="viewerDoc?.downloadUrl"
+        v-if="viewerDoc?.downloadUrl"
         :src="viewerDoc.downloadUrl"
         class="document-preview__frame"
         title="Visualização do documento"
       />
+      <div
+        v-else-if="viewerDoc?.content"
+        class="document-preview"
+      >
+        <pre class="document-preview__markdown">{{ viewerDoc.content }}</pre>
+      </div>
       <p
         v-else
         class="text-body-2 text-medium-emphasis mb-0"
@@ -427,6 +462,15 @@
         </AppButton>
       </template>
     </AppDialog>
+
+    <ConfirmDialog
+      v-model="reprocessConfirmOpen"
+      confirm-label="Reprocessar"
+      message="O e-mail será marcado como pending. O miner reextrairá os documentos com falha no próximo ciclo."
+      title="Reprocessar documentos?"
+      :loading="reprocessLoading"
+      @confirm="handleReprocess"
+    />
   </div>
 </template>
 

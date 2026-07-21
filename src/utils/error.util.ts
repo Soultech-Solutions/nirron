@@ -62,8 +62,19 @@ export function parseApiError (error: unknown): AppError {
       )
     }
 
+    const webApiError
+      = response
+        && typeof response === 'object'
+        && 'error' in response
+        && typeof (response as { error: unknown }).error === 'string'
+        ? (response as { error: string }).error
+        : undefined
+
     return new AppError(
-      response?.message ?? axiosError.message ?? 'Erro inesperado na requisição',
+      webApiError
+        ?? response?.message
+        ?? axiosError.message
+        ?? 'Erro inesperado na requisição',
       response?.code,
       statusCode ?? response?.statusCode,
       response?.errors,

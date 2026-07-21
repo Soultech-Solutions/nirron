@@ -24,6 +24,7 @@ import {
 } from '@/mocks/imports.mock'
 import { OPERATION_STATUS_LABELS } from '@/imports/processStatus'
 import { processesRepository } from '@/repositories/processes.repository'
+import { emailsRepository } from '@/repositories/emails.repository'
 import { USE_MOCK_AUTH } from '@/services'
 import { getErrorMessage } from '@/utils'
 
@@ -163,6 +164,15 @@ export function useImportsList () {
     await delay(300)
   }
 
+  async function reprocessEmail (emailId: string): Promise<string> {
+    if (USE_MOCK_AUTH) {
+      await delay(400)
+      return 'Reprocessamento enfileirado (mock).'
+    }
+    const result = await emailsRepository.reprocess(emailId)
+    return result.message
+  }
+
   return {
     loading,
     errorMessage,
@@ -183,6 +193,7 @@ export function useImportsList () {
     openDrawer,
     closeDrawer,
     exportSelected,
+    reprocessEmail,
   }
 }
 
@@ -259,6 +270,15 @@ export function useImportDetail () {
     }
   }
 
+  async function reprocessEmail (emailId: string): Promise<string> {
+    if (USE_MOCK_AUTH) {
+      await delay(400)
+      return 'Reprocessamento enfileirado (mock).'
+    }
+    const result = await emailsRepository.reprocess(emailId)
+    return result.message
+  }
+
   return {
     loading,
     errorMessage,
@@ -273,6 +293,7 @@ export function useImportDetail () {
     risks,
     aiResult,
     fetchDetail,
+    reprocessEmail,
   }
 }
 

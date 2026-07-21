@@ -9,13 +9,14 @@ import type {
 } from '@/components/domain/types'
 import type { ImportDetailDto, ImportListItemDto, ImportListQueryDto } from '@/dtos'
 import { ValidationResultEnum } from '@/enums'
-import { API_ENDPOINTS } from '@/constants'
+import { API_BASE_URL, API_ENDPOINTS } from '@/constants'
 import {
   buildTimeline,
 } from '@/imports/processStatus'
 import { runConferenceAnalysis } from '@/validation/conference.engine'
-import { resolveCeNumber, buildExtractedFieldMap } from '@/services/api/mercante.service'
+import { resolveCeNumber, resolveImportReferenceFields, buildExtractedFieldMap } from '@/services/api/mercante.service'
 import { directusGetById, directusList } from '@/services/api/directus.items'
+import { getAccessToken } from '@/utils'
 
 /**
  * Campos reais da collection `processes` no Directus NIRRON
@@ -27,8 +28,21 @@ export interface DirectusProcess {
   template_name?: string | null
   body_fields?: Record<string, unknown> | unknown[] | null
   confidence?: number | null
-  email_id?: string | number | { id: string | number } | null
+  date_created?: string | null
+  date_updated?: string | null
+  email_id?: string | number | DirectusEmailRef | null
   documents?: DirectusDocument[] | null
+}
+
+export interface DirectusEmailRef {
+  id: string | number
+  subject?: string | null
+  received_at?: string | null
+  /** emails.created_at (não é date_created do Directus) */
+  created_at?: string | null
+  /** emails.updated_at (não é date_updated do Directus) */
+  updated_at?: string | null
+  status?: string | null
 }
 
 export interface DirectusDocument {
@@ -65,24 +79,44 @@ export interface ProcessDetailPayload {
   extractedFieldMap: Record<string, string>
 }
 
-function readBodyField (body: DirectusProcess['body_fields'], key: string): string {
-  if (!body || Array.isArray(body) || typeof body !== 'object') return ''
-  const value = (body as Record<string, unknown>)[key]
-  return value == null ? '' : String(value)
-}
-
 function resolveAttachment (
   attachment: DirectusDocument['attachment_id'],
 ): DirectusAttachment | null {
-  if (!attachment || typeof attachment !== 'object') return null
-  return attachment
+  if (attachment == null || attachment === '') return null
+  if (typeof attachment === 'object') return attachment
+  return { id: attachment }
 }
 
-function resolveDownloadUrl (attachment: DirectusAttachment | null): string | undefined {
-  const path = attachment?.storage_path?.trim()
-  if (!path) return undefined
-  if (/^https?:\/\//i.test(path)) return path
+/** Directus file/asset id — prefer explicit id, then `directus:{file_id}` em storage_path */
+function resolveAssetId (attachment: DirectusAttachment | null): string | undefined {
+  if (!attachment) return undefined
+
+  const path = attachment.storage_path?.trim()
+  if (path) {
+    const directusRef = /^directus:(.+)$/i.exec(path)
+    if (directusRef?.[1]) return directusRef[1].trim()
+  }
+
+  if (attachment.id != null && attachment.id !== '') return String(attachment.id)
   return undefined
+}
+
+/**
+ * URL pública do arquivo no Directus: `{API_BASE_URL}/assets/{asset_id}`.
+ * Inclui access_token para preview em <iframe>/<img> (sem header Authorization).
+ */
+function resolveDownloadUrl (attachment: DirectusAttachment | null): string | undefined {
+  const assetId = resolveAssetId(attachment)
+  if (!assetId) {
+    const path = attachment?.storage_path?.trim()
+    if (path && /^https?:\/\//i.test(path)) return path
+    return undefined
+  }
+
+  const base = API_BASE_URL.replace(/\/$/, '')
+  const url = `${base}/assets/${assetId}`
+  const token = getAccessToken()
+  return token ? `${url}?access_token=${encodeURIComponent(token)}` : url
 }
 
 function formatSizeFromContent (content?: string | null): string {
@@ -111,8 +145,157 @@ function mapDocValidationStatus (statusRaw: string): ValidationResultEnum {
   return ValidationResultEnum.PENDING
 }
 
+function resolveEmailId (emailId: DirectusProcess['email_id']): string | undefined {
+  if (emailId == null || emailId === '') return undefined
+  if (typeof emailId === 'object') return String(emailId.id)
+  return String(emailId)
+}
+
+function resolveEmailSubject (emailId: DirectusProcess['email_id']): string | undefined {
+  if (!emailId || typeof emailId !== 'object') return undefined
+  const subject = emailId.subject?.trim()
+  return subject || undefined
+}
+
+/** Quando o expand aninhado falha, busca subject/datas em /items/emails. */
+async function hydrateEmails (processes: DirectusProcess[]): Promise<DirectusProcess[]> {
+  const ids = [
+    ...new Set(
+      processes
+        .map((process) => resolveEmailId(process.email_id))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ]
+  if (!ids.length) return processes
+
+  const alreadyExpanded = processes.every((process) => {
+    const email = process.email_id
+    return !email || (typeof email === 'object' && Boolean(email.subject?.trim()))
+  })
+  if (alreadyExpanded) return processes
+
+  try {
+    const response = await directusList<DirectusEmailRef>(
+      API_ENDPOINTS.DIRECTUS.EMAILS,
+      {
+        limit: Math.max(ids.length, 1),
+        filter: { id: { _in: ids } },
+        fields: ['id', 'subject', 'created_at', 'updated_at', 'received_at'],
+      },
+    )
+
+    const byId = new Map(
+      response.data.map((email) => [String(email.id), email] as const),
+    )
+
+    return processes.map((process) => {
+      const emailId = resolveEmailId(process.email_id)
+      if (!emailId) return process
+      const email = byId.get(emailId)
+      if (!email) return process
+
+      const current = typeof process.email_id === 'object' && process.email_id != null
+        ? process.email_id
+        : { id: emailId }
+
+      return {
+        ...process,
+        email_id: {
+          ...current,
+          ...email,
+          id: email.id,
+        },
+      }
+    })
+  } catch {
+    return processes
+  }
+}
+
+const BODY_DATE_ALIASES = new Set([
+  'date_created',
+  'date_updated',
+  'created_at',
+  'updated_at',
+  'created_date',
+  'updated_date',
+  'data_criacao',
+  'data_atualizacao',
+  'received_at',
+  'received_date',
+  'data_recebimento',
+  'email_date',
+  'sent_at',
+  'data_email',
+])
+
+function parseTimestamp (value: unknown): string | undefined {
+  if (typeof value !== 'string' && typeof value !== 'number') return undefined
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
+function normalizeBodyKey (value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+function timestampFromBodyFields (body: DirectusProcess['body_fields']): string | undefined {
+  if (!body || Array.isArray(body) || typeof body !== 'object') return undefined
+
+  let result: string | undefined
+  const walk = (source: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(source)) {
+      if (result) return
+      if (BODY_DATE_ALIASES.has(normalizeBodyKey(key))) {
+        result = parseTimestamp(value)
+        if (result) return
+      }
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        walk(value as Record<string, unknown>)
+      }
+    }
+  }
+  walk(body)
+  return result
+}
+
+function resolveProcessTimestamps (process: DirectusProcess): {
+  createdAt: string
+  updatedAt: string
+} {
+  const email = typeof process.email_id === 'object' && process.email_id != null
+    ? process.email_id
+    : null
+
+  const fromBody = timestampFromBodyFields(process.body_fields)
+
+  const createdAt
+    = parseTimestamp(process.date_created)
+      ?? parseTimestamp(email?.created_at)
+      ?? parseTimestamp(email?.received_at)
+      ?? fromBody
+      ?? ''
+
+  const updatedAt
+    = parseTimestamp(process.date_updated)
+      ?? parseTimestamp(email?.updated_at)
+      ?? parseTimestamp(email?.received_at)
+      ?? parseTimestamp(email?.created_at)
+      ?? parseTimestamp(process.date_created)
+      ?? fromBody
+      ?? createdAt
+
+  return { createdAt, updatedAt }
+}
+
 function mapDocument (doc: DirectusDocument): DocumentItem {
   const attachment = resolveAttachment(doc.attachment_id)
+  const assetId = resolveAssetId(attachment)
   const fileName = attachment?.filename
     || (doc.doc_type ? `${doc.doc_type}.md` : `documento-${doc.id}.md`)
 
@@ -126,40 +309,40 @@ function mapDocument (doc: DirectusDocument): DocumentItem {
     content: doc.markdown_excerpt ?? undefined,
     mimeType: attachment?.mime_type ?? 'text/markdown',
     downloadUrl: resolveDownloadUrl(attachment),
-    attachmentId: attachment ? String(attachment.id) : undefined,
+    attachmentId: assetId,
   }
 }
 
 function mapProcessToListItem (process: DirectusProcess): ImportListItemDto {
+  const refs = resolveImportReferenceFields({
+    bodyFields: process.body_fields,
+    documents: process.documents,
+  })
   const refNirron = process.ref_nirron?.trim() || `PROC-${process.id}`
-  const cliente = process.ref_cliente?.trim() || process.template_name?.trim() || '—'
-  const ncm = readBodyField(process.body_fields, 'ncm')
-    || readBodyField(process.body_fields, 'NCM')
+  const cliente = process.ref_cliente?.trim()
+    || refs.importer
     || '—'
-  const now = new Date().toISOString()
+  const ncm = refs.ncm || '—'
   // Mesma fonte do detalhe: motor de conferência (evita "Aprovada" só por extração de PDF)
   const status = runConferenceAnalysis(process).operationStatus
+  const { createdAt, updatedAt } = resolveProcessTimestamps(process)
 
   return {
     id: String(process.id),
     company: cliente,
     importer: cliente,
-    exporter: readBodyField(process.body_fields, 'exportador')
-      || readBodyField(process.body_fields, 'exporter')
-      || '—',
-    diNumber: readBodyField(process.body_fields, 'di')
-      || readBodyField(process.body_fields, 'di_number')
-      || undefined,
-    duimpNumber: readBodyField(process.body_fields, 'duimp')
-      || readBodyField(process.body_fields, 'duimp_number')
-      || undefined,
-    invoiceNumber: refNirron,
-    container: readBodyField(process.body_fields, 'container') || undefined,
+    exporter: refs.exporter || '—',
+    diNumber: refs.diNumber,
+    duimpNumber: refs.duimpNumber,
+    invoiceNumber: refs.invoiceNumber || refNirron,
+    container: refs.container,
     ncm,
-    responsible: process.template_name?.trim() || '—',
+    blNumber: refs.blNumber,
+    emailId: resolveEmailId(process.email_id),
+    emailSubject: resolveEmailSubject(process.email_id),
     status,
-    createdAt: now,
-    updatedAt: now,
+    createdAt,
+    updatedAt,
   }
 }
 
@@ -170,23 +353,24 @@ function mapProcessToDetail (
   registrationStatus: ImportDetailDto['registrationStatus'],
 ): ImportDetailDto {
   const base = mapProcessToListItem(process)
-  const body = process.body_fields && !Array.isArray(process.body_fields)
-    ? process.body_fields as Record<string, unknown>
-    : {}
+  const refs = resolveImportReferenceFields({
+    bodyFields: process.body_fields,
+    documents: process.documents,
+  })
 
   return {
     ...base,
     status,
-    client: base.importer,
-    supplier: base.exporter,
-    incoterm: String(body.incoterm ?? body.Incoterm ?? '—'),
-    currency: String(body.currency ?? body.moeda ?? 'USD'),
-    totalFobValue: Number(body.total_fob ?? body.valor_fob ?? 0),
+    client: refs.importer || base.importer,
+    supplier: refs.exporter || base.exporter,
+    incoterm: refs.incoterm || '—',
+    currency: refs.currency || 'USD',
+    totalFobValue: refs.totalFobValue ?? 0,
     currentStage,
     registrationStatus,
-    weightNet: body.peso_liquido != null ? Number(body.peso_liquido) : undefined,
-    weightGross: body.peso_bruto != null ? Number(body.peso_bruto) : undefined,
-    ceNumber: resolveCeNumber({
+    weightNet: refs.weightNet,
+    weightGross: refs.weightGross,
+    ceNumber: refs.ceNumber || resolveCeNumber({
       bodyFields: process.body_fields,
       documents: process.documents,
     }) || undefined,
@@ -218,7 +402,7 @@ function buildDetailPayload (process: DirectusProcess): ProcessDetailPayload {
   }
 }
 
-/** Lista: inclui status de documentos para status consistente com o detalhe */
+/** Lista: email expandido cedo; datas do process são opcionais (fallback abaixo) */
 export const PROCESS_LIST_FIELDS = [
   'id',
   'ref_nirron',
@@ -226,12 +410,45 @@ export const PROCESS_LIST_FIELDS = [
   'template_name',
   'body_fields',
   'confidence',
+  'email_id.id',
+  'email_id.subject',
+  'email_id.created_at',
+  'email_id.updated_at',
   'documents.id',
   'documents.doc_type',
   'documents.extraction_status',
   'documents.extraction_error',
   'documents.confidence',
   'documents.extracted_fields',
+].join(',')
+
+const PROCESS_LIST_FIELDS_WITH_PROCESS_DATES = [
+  PROCESS_LIST_FIELDS,
+  'date_created',
+  'date_updated',
+].join(',')
+
+const PROCESS_LIST_FIELDS_EMAIL_ONLY = [
+  'id',
+  'ref_nirron',
+  'ref_cliente',
+  'template_name',
+  'body_fields',
+  'confidence',
+  'email_id.id',
+  'email_id.subject',
+  'email_id.created_at',
+  'email_id.updated_at',
+].join(',')
+
+const PROCESS_LIST_FIELDS_BASIC = [
+  'id',
+  'ref_nirron',
+  'ref_cliente',
+  'template_name',
+  'body_fields',
+  'confidence',
+  'email_id',
 ].join(',')
 
 const PROCESS_DETAIL_FIELDS_BASIC = [
@@ -241,7 +458,10 @@ const PROCESS_DETAIL_FIELDS_BASIC = [
   'template_name',
   'body_fields',
   'confidence',
-  'email_id',
+  'email_id.id',
+  'email_id.subject',
+  'email_id.created_at',
+  'email_id.updated_at',
   'documents.id',
   'documents.doc_type',
   'documents.markdown_excerpt',
@@ -250,6 +470,8 @@ const PROCESS_DETAIL_FIELDS_BASIC = [
   'documents.extraction_status',
   'documents.extraction_error',
 ].join(',')
+
+const PROCESS_DETAIL_FIELDS_NO_SYSTEM_DATES = PROCESS_DETAIL_FIELDS_BASIC
 
 const PROCESS_DETAIL_FIELDS = [
   PROCESS_DETAIL_FIELDS_BASIC,
@@ -265,57 +487,70 @@ class ProcessesRepository {
     const limit = query?.perPage ?? 10
     const sortField = mapSortField(query?.sortBy)
     const sortDir = query?.sortOrder === 'asc' ? '' : '-'
+    const preferredSort = `${sortDir}${sortField}`
+    const sorts = preferredSort === '-id' || preferredSort === 'id'
+      ? [preferredSort]
+      : [preferredSort, '-id']
 
-    try {
-      const response = await directusList<DirectusProcess>(
-        API_ENDPOINTS.DIRECTUS.PROCESSES,
-        {
-          page,
-          limit,
-          search: query?.search || undefined,
-          sort: `${sortDir}${sortField}`,
-          fields: PROCESS_LIST_FIELDS,
-        },
-      )
+    const fieldSets = [
+      PROCESS_LIST_FIELDS_WITH_PROCESS_DATES,
+      PROCESS_LIST_FIELDS,
+      PROCESS_LIST_FIELDS_EMAIL_ONLY,
+      PROCESS_LIST_FIELDS_BASIC,
+    ]
 
-      return {
-        data: response.data.map(mapProcessToListItem),
-        meta: response.meta,
-      }
-    } catch {
-      // Fallback sem relação documents (permissões)
-      const response = await directusList<DirectusProcess>(
-        API_ENDPOINTS.DIRECTUS.PROCESSES,
-        {
-          page,
-          limit,
-          search: query?.search || undefined,
-          sort: `${sortDir}${sortField}`,
-          fields: 'id,ref_nirron,ref_cliente,template_name,body_fields,confidence',
-        },
-      )
+    let lastError: unknown
+    for (const fields of fieldSets) {
+      for (const sort of sorts) {
+        try {
+          const response = await directusList<DirectusProcess>(
+            API_ENDPOINTS.DIRECTUS.PROCESSES,
+            {
+              page,
+              limit,
+              search: query?.search || undefined,
+              sort,
+              fields,
+            },
+          )
 
-      return {
-        data: response.data.map(mapProcessToListItem),
-        meta: response.meta,
+          const hydrated = await hydrateEmails(response.data)
+
+          return {
+            data: hydrated.map(mapProcessToListItem),
+            meta: response.meta,
+          }
+        } catch (error) {
+          lastError = error
+        }
       }
     }
+
+    throw lastError
   }
 
   async getDetail (id: string): Promise<ProcessDetailPayload> {
-    try {
-      const process = await directusGetById<DirectusProcess>(
-        API_ENDPOINTS.DIRECTUS.PROCESS_BY_ID(id),
-        { params: { fields: PROCESS_DETAIL_FIELDS } },
-      )
-      return buildDetailPayload(process)
-    } catch {
-      const process = await directusGetById<DirectusProcess>(
-        API_ENDPOINTS.DIRECTUS.PROCESS_BY_ID(id),
-        { params: { fields: PROCESS_DETAIL_FIELDS_BASIC } },
-      )
-      return buildDetailPayload(process)
+    const fieldSets = [
+      PROCESS_DETAIL_FIELDS,
+      PROCESS_DETAIL_FIELDS_BASIC,
+      'id,ref_nirron,ref_cliente,template_name,body_fields,confidence,email_id',
+    ]
+
+    let lastError: unknown
+    for (const fields of fieldSets) {
+      try {
+        const process = await directusGetById<DirectusProcess>(
+          API_ENDPOINTS.DIRECTUS.PROCESS_BY_ID(id),
+          { params: { fields } },
+        )
+        const [hydrated] = await hydrateEmails([process])
+        return buildDetailPayload(hydrated)
+      } catch (error) {
+        lastError = error
+      }
     }
+
+    throw lastError
   }
 }
 
@@ -326,7 +561,9 @@ function mapSortField (sortBy?: string): string {
     case 'invoiceNumber':
       return 'ref_nirron'
     case 'createdAt':
+      return 'date_created'
     case 'updatedAt':
+      return 'date_updated'
     default:
       return 'id'
   }

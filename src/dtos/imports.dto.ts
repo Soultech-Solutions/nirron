@@ -19,9 +19,18 @@ export interface ImportListItemDto {
   invoiceNumber: string
   container?: string
   ncm: string
-  responsible: string
+  /** @deprecated Não há responsável no processo; template pertence a attachments */
+  responsible?: string
+  /** House/Master BL quando disponível */
+  blNumber?: string
+  /** UUID do e-mail no miner (emails.id); necessário para reprocessar docs */
+  emailId?: string
+  /** Assunto do e-mail vinculado (emails.subject) */
+  emailSubject?: string
   status: OperationStatus
+  /** ISO; vazio quando o Directus não expõe data */
   createdAt: string
+  /** ISO; vazio quando o Directus não expõe data */
   updatedAt: string
 }
 

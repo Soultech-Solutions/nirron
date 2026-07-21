@@ -1,20 +1,23 @@
 <script lang="ts" setup>
-  import { onMounted } from 'vue'
+  import { onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { OperationStatus } from '@/enums'
   import {
     AppButton,
+    ConfirmDialog,
     EmptyState,
     LoadingSkeleton,
     PageHeader,
     StatusBadge,
     Toolbar,
   } from '@/components/ui'
+  import { useNotification } from '@/composables'
   import { ROUTE_PATHS } from '@/constants'
   import { useImportsList, OPERATION_STATUS_LABELS } from '@/imports/composables/useImports'
-  import { formatDateTime, formatNcm } from '@/utils'
+  import { formatDateTime, formatNcm, getErrorMessage } from '@/utils'
 
   const router = useRouter()
+  const { success, error, warning } = useNotification()
 
   const {
     loading,
@@ -33,10 +36,14 @@
     setSort,
     toggleSelect,
     toggleSelectAll,
-    openDrawer,
     closeDrawer,
     exportSelected,
+    reprocessEmail,
   } = useImportsList()
+
+  const reprocessLoadingId = ref<string | null>(null)
+  const confirmOpen = ref(false)
+  const confirmEmailId = ref<string | null>(null)
 
   onMounted(() => fetchList())
 
@@ -61,6 +68,35 @@
   function onSearchInput (value: string): void {
     clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => setSearch(value), 300)
+  }
+
+  function askReprocess (emailId: string): void {
+    confirmEmailId.value = emailId
+    confirmOpen.value = true
+  }
+
+  async function confirmReprocess (): Promise<void> {
+    const emailId = confirmEmailId.value
+    if (!emailId) return
+
+    confirmOpen.value = false
+    reprocessLoadingId.value = emailId
+    try {
+      const message = await reprocessEmail(emailId)
+      success('Reprocessamento enfileirado', message)
+    } catch (error_) {
+      error('Falha ao reprocessar', getErrorMessage(error_))
+    } finally {
+      reprocessLoadingId.value = null
+      confirmEmailId.value = null
+    }
+  }
+
+  function copyEmailSubject (subject: string): void {
+    void navigator.clipboard.writeText(subject).then(
+      () => success('Assunto copiado'),
+      () => warning('Não foi possível copiar o assunto'),
+    )
   }
 </script>
 
@@ -166,11 +202,11 @@
               <th class="d-none d-sm-table-cell">
                 Invoice
               </th>
+              <th>
+                Assunto
+              </th>
               <th class="d-none d-lg-table-cell">
                 NCM
-              </th>
-              <th class="d-none d-md-table-cell">
-                Responsável
               </th>
               <th>Status</th>
               <th
@@ -178,6 +214,9 @@
                 @click="setSort('updatedAt')"
               >
                 Atualizado
+              </th>
+              <th class="text-end">
+                Ações
               </th>
             </tr>
           </thead>
@@ -210,11 +249,31 @@
               <td class="d-none d-sm-table-cell text-caption">
                 {{ item.invoiceNumber }}
               </td>
+              <td
+                class="text-caption"
+                @click.stop
+              >
+                <template v-if="item.emailSubject">
+                  <v-tooltip location="top">
+                    <template #activator="{ props: tipProps }">
+                      <span
+                        v-bind="tipProps"
+                        class="imports-table__email-subject"
+                        @click="copyEmailSubject(item.emailSubject!)"
+                      >
+                        {{ item.emailSubject }}
+                      </span>
+                    </template>
+                    {{ item.emailSubject }}
+                  </v-tooltip>
+                </template>
+                <span
+                  v-else
+                  class="text-medium-emphasis"
+                >—</span>
+              </td>
               <td class="d-none d-lg-table-cell text-caption">
                 {{ formatNcm(item.ncm) }}
-              </td>
-              <td class="d-none d-md-table-cell text-caption">
-                {{ item.responsible }}
               </td>
               <td>
                 <StatusBadge
@@ -225,7 +284,22 @@
                 />
               </td>
               <td class="d-none d-sm-table-cell text-caption text-medium-emphasis">
-                {{ formatDateTime(item.updatedAt) }}
+                {{ item.updatedAt ? formatDateTime(item.updatedAt) : '—' }}
+              </td>
+              <td
+                class="text-end"
+                @click.stop
+              >
+                <v-btn
+                  :disabled="!item.emailId"
+                  :loading="reprocessLoadingId === item.emailId"
+                  color="primary"
+                  icon="mdi-refresh"
+                  size="x-small"
+                  title="Reprocessar documentos"
+                  variant="tonal"
+                  @click="item.emailId && askReprocess(item.emailId)"
+                />
               </td>
             </tr>
           </tbody>
@@ -284,7 +358,10 @@
               subtitle="DI / DUIMP"
             />
             <v-list-item :title="formatNcm(drawerItem.ncm)" subtitle="NCM" />
-            <v-list-item :title="drawerItem.responsible" subtitle="Responsável" />
+            <v-list-item
+              :title="drawerItem.emailSubject ?? '—'"
+              subtitle="Assunto"
+            />
           </v-list>
           <AppButton
             block
@@ -293,9 +370,29 @@
           >
             Ver detalhes completos
           </AppButton>
+          <AppButton
+            v-if="drawerItem.emailId"
+            block
+            class="mt-2"
+            :loading="reprocessLoadingId === drawerItem.emailId"
+            prepend-icon="mdi-refresh"
+            variant="secondary"
+            @click="askReprocess(drawerItem.emailId!)"
+          >
+            Reprocessar documentos
+          </AppButton>
         </div>
       </template>
     </v-navigation-drawer>
+
+    <ConfirmDialog
+      v-model="confirmOpen"
+      confirm-label="Reprocessar"
+      message="O e-mail será marcado como pending. O miner reextrairá os documentos com falha no próximo ciclo."
+      title="Reprocessar documentos?"
+      :loading="!!reprocessLoadingId"
+      @confirm="confirmReprocess"
+    />
   </div>
 </template>
 
@@ -311,6 +408,20 @@
 
     &__row {
       cursor: pointer;
+    }
+
+    &__email-subject {
+      cursor: pointer;
+      display: inline-block;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: bottom;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
 
     .sortable {

@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     PASSWORD_REQUEST: '/auth/password/request',
     PASSWORD_RESET: '/auth/password/reset',
   },
+  ASSETS: (id: string) => `/assets/${id}`,
   /** Collections Directus (Data Model NIRRON) */
   DIRECTUS: {
     PROCESSES: '/items/processes',
@@ -32,6 +33,7 @@ export const API_ENDPOINTS = {
     DOCUMENTS: '/items/documents',
     DOCUMENT_BY_ID: (id: string) => `/items/documents/${id}`,
     ATTACHMENTS: '/items/attachments',
+    EMAIL_BY_ID: (id: string) => `/items/emails/${id}`,
     EMAILS: '/items/emails',
     AI_PROMPTS: '/items/ai_prompts',
   },

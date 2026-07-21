@@ -190,6 +190,103 @@ export function resolveCeNumber (input: {
   return pickFromMap(bag, CE_ALIASES)
 }
 
+export interface ImportReferenceFields {
+  diNumber?: string
+  duimpNumber?: string
+  invoiceNumber?: string
+  container?: string
+  blNumber?: string
+  ceNumber?: string
+  ncm?: string
+  exporter?: string
+  importer?: string
+  incoterm?: string
+  currency?: string
+  totalFobValue?: number
+  weightNet?: number
+  weightGross?: number
+}
+
+/**
+ * Números e campos de referência a partir de body_fields + extracted_fields
+ * (DI / DUIMP / Invoice / BL / CE, etc.).
+ */
+export function resolveImportReferenceFields (input: {
+  bodyFields?: Record<string, unknown> | unknown[] | null
+  documents?: Array<{ extracted_fields?: Record<string, unknown> | null }> | null
+}): ImportReferenceFields {
+  const bag = buildExtractedFieldMap(input)
+
+  const totalFobRaw = pickFromMap(bag, [
+    'total_fob_value',
+    'valor_fob',
+    'total_fob',
+    'fob_total',
+    'amount',
+  ])
+  const weightNetRaw = pickFromMap(bag, ['weight_net', 'peso_liquido', 'net_weight'])
+  const weightGrossRaw = pickFromMap(bag, ['weight_gross', 'peso_bruto', 'gross_weight', 'peso_bruto_kg'])
+
+  const parseNumber = (value: string): number | undefined => {
+    if (!value) return undefined
+    const n = Number(value.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, ''))
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  return {
+    diNumber: pickFromMap(bag, ['di', 'di_number', 'numero_di', 'nr_di', 'n_di']) || undefined,
+    duimpNumber: pickFromMap(bag, [
+      'duimp',
+      'duimp_number',
+      'numero_duimp',
+      'nr_duimp',
+      'id_duimp',
+      'numero_da_duimp',
+    ]) || undefined,
+    invoiceNumber: pickFromMap(bag, [
+      'invoice',
+      'invoice_number',
+      'numero_invoice',
+      'invoice_no',
+      'commercial_invoice',
+      'nr_invoice',
+      'n_invoice',
+    ]) || undefined,
+    container: pickFromMap(bag, ['container', 'container_number', 'cntr', 'numero_container']) || undefined,
+    blNumber: pickFromMap(bag, [
+      'house_bl',
+      'bl_number',
+      'bl',
+      'bill_of_lading',
+      'conhecimento',
+      'master_bl',
+      'mbl',
+      'hbl',
+    ]) || undefined,
+    ceNumber: pickFromMap(bag, CE_ALIASES) || undefined,
+    ncm: pickFromMap(bag, ['ncm', 'NCM', 'ncm_code', 'codigo_ncm']) || undefined,
+    exporter: pickFromMap(bag, [
+      'exporter_name',
+      'exportador',
+      'exporter',
+      'shipper',
+      'shipper_name',
+    ]) || undefined,
+    importer: pickFromMap(bag, [
+      'importer_name',
+      'importador',
+      'importer',
+      'consignee_name',
+      'razao_social',
+    ]) || undefined,
+    incoterm: pickFromMap(bag, ['incoterm', 'Incoterm']) || undefined,
+    currency: pickFromMap(bag, ['currency', 'moeda', 'currency_code']) || undefined,
+    totalFobValue: parseNumber(totalFobRaw),
+    weightNet: parseNumber(weightNetRaw),
+    weightGross: parseNumber(weightGrossRaw),
+  }
+}
+
 function normalizeDocumentId (value: string): string {
   return value.replace(/\D+/g, '')
 }
